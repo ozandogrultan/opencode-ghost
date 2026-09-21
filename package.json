@@ -18,12 +18,19 @@
   },
   "files": [
     "src",
+    "CHANGELOG.md",
     "LICENSE",
     "README.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test && bash tests/changelog.sh",
+    "test:unit": "bun test",
+    "test:changelog": "bash tests/changelog.sh",
+    "prepublishOnly": "bun run test && bun run typecheck"
   },
   "engines": {
     "opencode": ">=1.18.0"
