@@ -1,0 +1,55 @@
+{
+  "name": "opencode-ghost",
+  "version": "0.1.0",
+  "description": "Claude Code-style next-prompt suggestions in the opencode TUI, shown as dimmed ghost text and accepted with Tab. An opencode plugin.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Ozan Dogrultan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ozandogrultan/opencode-ghost.git"
+  },
+  "homepage": "https://github.com/ozandogrultan/opencode-ghost#readme",
+  "bugs": {
+    "url": "https://github.com/ozandogrultan/opencode-ghost/issues"
+  },
+  "exports": {
+    "./tui": "./src/tui.tsx"
+  },
+  "files": [
+    "src",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "engines": {
+    "opencode": ">=1.18.0"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "tui",
+    "ghost-text",
+    "autosuggest",
+    "prompt",
+    "suggestion"
+  ],
+  "dependencies": {
+    "solid-js": "^1.9.12"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": "*",
+    "solid-js": "*"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "1.18.25",
+    "@opentui/core": "0.4.5",
+    "@opentui/keymap": "0.4.5",
+    "@opentui/solid": "0.4.5",
+    "@types/node": "24.12.2",
+    "typescript": "5.8.2"
+  }
+}
