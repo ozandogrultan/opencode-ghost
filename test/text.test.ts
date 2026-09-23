@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { clip, normalize, parseModel } from "../src/text"
+import { clip, isEcho, normalize, parseModel } from "../src/text"
 
 describe("parseModel", () => {
   test("parses provider/model", () => {
@@ -57,5 +57,23 @@ describe("normalize", () => {
     const out = normalize("a".repeat(200), 10)
     expect(out?.length).toBe(10)
     expect(out?.endsWith("…")).toBe(true)
+  })
+})
+
+describe("isEcho", () => {
+  test("flags an exact repeat of the last message", () => {
+    expect(isEcho("done", "done")).toBe(true)
+    expect(isEcho("Done.", "done")).toBe(true)
+    expect(isEcho("  go ahead  ", "Go ahead")).toBe(true)
+  })
+
+  test("flags a repeat wrapped in a longer message", () => {
+    expect(isEcho("ok, run the full test suite again", "run the full test suite again")).toBe(true)
+  })
+
+  test("allows a genuinely new reply", () => {
+    expect(isEcho("yes, go ahead", "done")).toBe(false)
+    expect(isEcho("thanks", "why is the pane flashing")).toBe(false)
+    expect(isEcho("", "done")).toBe(false)
   })
 })

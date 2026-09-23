@@ -2,6 +2,8 @@ export type PromptSuggestOptions = {
   enabled?: boolean
   model?: string
   acceptKeys?: string[]
+  backOnEmptyLeft?: boolean
+  internalSessionMarkerDir?: string
   maxChars?: number
   idleDelayMs?: number
   recentMessages?: number
@@ -12,6 +14,8 @@ export type ResolvedOptions = {
   enabled: boolean
   model: string | undefined
   acceptKeys: string[]
+  backOnEmptyLeft: boolean
+  internalSessionMarkerDir: string | undefined
   maxChars: number
   idleDelayMs: number
   recentMessages: number
@@ -20,11 +24,23 @@ export type ResolvedOptions = {
 
 export const DEFAULT_SYSTEM = [
   "You write the next message that the USER of a coding agent would send.",
-  "It must sound like the user, not the assistant: short and direct.",
-  "Never restate or summarize the assistant's reply.",
-  'If the assistant proposed a next step, a brief affirmation such as "Yes." or "Go ahead." is best.',
-  "If the assistant asked a question, answer it briefly.",
-  "Output one line, plain text only: no markdown, no quotes, no backticks, no preamble.",
+  "Write what the user says AFTER the assistant's latest reply.",
+  "",
+  "Rules:",
+  "- Move the conversation forward. Never repeat, quote, or paraphrase the user's own previous message.",
+  "- Sound like the user: short and direct, one line, plain text only.",
+  '- If the assistant proposed a next step, a brief affirmation such as "Yes." or "Go ahead." is best.',
+  "- If the assistant asked a question, answer it briefly.",
+  "- No markdown, no quotes, no backticks, no preamble.",
+  "",
+  "Examples:",
+  "Assistant: I ran the tests - 13 passed, 0 failed.",
+  "Next user message: great, thanks",
+  "Assistant: That changes the hook contract. Want me to proceed?",
+  "Next user message: yes, go ahead",
+  "Assistant: Which model should the small tasks use?",
+  "Next user message: the fast free one",
+  "",
   "If no reply makes sense, output exactly: NONE",
 ].join("\n")
 
@@ -48,6 +64,11 @@ export function resolveOptions(options: PromptSuggestOptions | undefined): Resol
       Array.isArray(input.acceptKeys) && input.acceptKeys.length > 0
         ? input.acceptKeys
         : [...DEFAULTS.acceptKeys],
+    backOnEmptyLeft: input.backOnEmptyLeft ?? false,
+    internalSessionMarkerDir:
+      typeof input.internalSessionMarkerDir === "string" && input.internalSessionMarkerDir.trim()
+        ? input.internalSessionMarkerDir.trim()
+        : undefined,
     maxChars: typeof maxChars === "number" && maxChars > 0 ? maxChars : DEFAULTS.maxChars,
     idleDelayMs:
       typeof idleDelayMs === "number" && idleDelayMs >= 0 ? idleDelayMs : DEFAULTS.idleDelayMs,

@@ -1,8 +1,10 @@
 /** @jsxImportSource @opentui/solid */
 import type { TuiPlugin, TuiPromptRef } from "@opencode-ai/plugin/tui"
 import { createSignal } from "solid-js"
+import * as fs from "node:fs"
+import * as path from "node:path"
 import { resolveOptions, type PromptSuggestOptions } from "./options"
-import { clip, normalize, parseModel } from "./text"
+import { clip, isEcho, normalize, parseModel } from "./text"
 
 const HIDDEN_TITLE = "ghost-hidden"
 const MAX_MESSAGE_CHARS = 800
@@ -30,8 +32,77 @@ const HIDDEN_TOOLS = {
   lsp: false,
 }
 
+function markPending(dir: string, pending: string) {
+  try {
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(pending, "")
+  } catch {
+    // best effort
+  }
+}
+
+function markSession(dir: string, pending: string, id: string, directory: string) {
+  try {
+    fs.writeFileSync(path.join(dir, `id-${id}`), JSON.stringify({ directory, pid: process.pid }))
+    fs.rmSync(pending, { force: true })
+  } catch {
+    // best effort
+  }
+}
+
+function unmarkSession(dir: string, pending: string, id: string | undefined, deleted: boolean) {
+  try {
+    fs.rmSync(pending, { force: true })
+  } catch {
+    // best effort
+  }
+  if (!id || !deleted) return
+  try {
+    fs.rmSync(path.join(dir, `id-${id}`), { force: true })
+  } catch {
+    // best effort
+  }
+}
+
+function processIsRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code !== "ESRCH"
+  }
+}
+
 const tui: TuiPlugin = async (api, rawOptions) => {
   const opts = resolveOptions(rawOptions as PromptSuggestOptions | undefined)
+  const recoverOrphans = async () => {
+    const dir = opts.internalSessionMarkerDir
+    if (!dir) return
+    let entries: string[]
+    try {
+      entries = fs.readdirSync(dir).filter((entry) => /^id-ses_[\w-]+$/.test(entry))
+    } catch {
+      return
+    }
+    for (const entry of entries) {
+      const marker = path.join(dir, entry)
+      try {
+        const { directory, pid } = JSON.parse(fs.readFileSync(marker, "utf8")) as {
+          directory: string
+          pid: number
+        }
+        if (!directory || !Number.isInteger(pid) || pid <= 0 || processIsRunning(pid)) continue
+        const sessionID = entry.slice(3)
+        const found = await api.client.session.get({ sessionID, directory })
+        if (found.data?.title !== HIDDEN_TITLE) continue
+        const result = await api.client.session.delete({ sessionID, directory })
+        if (result.data === true) fs.rmSync(marker, { force: true })
+      } catch {
+        // Keep the marker for the next startup if the server is unavailable.
+      }
+    }
+  }
+  void recoverOrphans()
   const [ghost, setGhost] = createSignal<{ sessionID: string; text: string } | undefined>()
   let promptRef: TuiPromptRef | undefined
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -96,15 +167,31 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     return `${lines.join("\n").slice(-MAX_TRANSCRIPT_CHARS)}\n\nTask: write the user's next message.`
   }
 
+  const lastUserText = (sessionID: string) => {
+    const message = api.state.session.messages(sessionID).filter((m) => m.role === "user").at(-1)
+    if (!message) return ""
+    return api.state
+      .part(message.id)
+      .filter((part) => part.type === "text")
+      .map((part) => (part.type === "text" ? part.text : ""))
+      .join(" ")
+  }
+
   const generate = async (sessionID: string): Promise<string | undefined> => {
     const transcript = buildTranscript(sessionID)
     if (!transcript) return undefined
 
-    const created = await api.client.session.create({ title: HIDDEN_TITLE })
-    const tempID = created.data?.id
-    if (!tempID) return undefined
+    const markerDir = opts.internalSessionMarkerDir
+    const pending = markerDir ? path.join(markerDir, "pending") : undefined
+    if (markerDir && pending) markPending(markerDir, pending)
 
+    let tempID: string | undefined
     try {
+      const created = await api.client.session.create({ title: HIDDEN_TITLE })
+      tempID = created.data?.id
+      if (!tempID) return undefined
+      if (markerDir && pending) markSession(markerDir, pending, tempID, created.data!.directory)
+
       const result = await api.client.session.prompt({
         sessionID: tempID,
         system: opts.system,
@@ -117,9 +204,22 @@ const tui: TuiPlugin = async (api, rawOptions) => {
         .filter((part) => part.type === "text")
         .map((part) => (part.type === "text" ? part.text : ""))
         .join("\n")
-      return normalize(raw, opts.maxChars)
+      const suggestion = normalize(raw, opts.maxChars)
+      if (!suggestion) return undefined
+      const previous = lastUserText(sessionID)
+      if (previous && isEcho(suggestion, previous)) return undefined
+      return suggestion
     } finally {
-      await api.client.session.delete({ sessionID: tempID }).catch(() => undefined)
+      let deleted = false
+      if (tempID) {
+        try {
+          const result = await api.client.session.delete({ sessionID: tempID })
+          deleted = result.data === true
+        } catch {
+          // The marker remains so the next TUI startup can retry.
+        }
+      }
+      if (markerDir && pending) unmarkSession(markerDir, pending, tempID, deleted)
     }
   }
 
@@ -197,6 +297,35 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     schedule(id)
   })
 
+  // session.idle is deprecated upstream; the live signal is session.status.
+  const offStatus = api.event.on("session.status", (event) => {
+    const props = event.properties
+    if (props?.status?.type !== "idle") return
+    if (!props.sessionID) return
+    schedule(props.sessionID)
+  })
+
+  const backLayer = api.keymap.registerLayer({
+    mode: "base",
+    priority: 40,
+    bindings: [
+      {
+        key: "left",
+        desc: "Return to the home screen when the prompt is empty",
+        preventDefault: false,
+        fallthrough: true,
+        cmd: () => {
+          if (!opts.backOnEmptyLeft) return false
+          if (api.route.current.name !== "session") return false
+          if (!promptRef) return false
+          if (currentInput().trim().length > 0) return false
+          api.route.navigate("home")
+          return true
+        },
+      },
+    ],
+  })
+
   api.slots.register({
     order: 60,
     slots: {
@@ -264,6 +393,8 @@ const tui: TuiPlugin = async (api, rawOptions) => {
   api.lifecycle.onDispose(() => {
     if (timer) clearTimeout(timer)
     offIdle()
+    offStatus()
+    backLayer()
     disableAccept()
   })
 }

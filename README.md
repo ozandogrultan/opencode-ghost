@@ -87,6 +87,8 @@ Pass an options object as the second element of the plugin tuple:
 | `idleDelayMs`    | `number`   | `500`                 | Debounce after a turn finishes before generating.                     |
 | `recentMessages` | `number`   | `10`                  | How many recent messages feed the suggestion prompt.                  |
 | `system`         | `string`   | built-in              | Override the system prompt sent to the suggestion model.              |
+| `backOnEmptyLeft` | `boolean`  | `false`               | Return to the home screen with Left when the prompt is empty.         |
+| `internalSessionMarkerDir` | `string` | unset       | Directory for tracking and recovering interrupted hidden sessions.   |
 
 ## Commands
 

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Optional Left-arrow navigation back to the home screen from an empty prompt.
+- Recovery of abandoned hidden suggestion sessions on TUI startup when a marker directory is configured.
+
+### Fixed
+
+- Prevent suggestions from repeating the user's previous message.
+- Trigger suggestions from the current session-status idle event.
+
 ## [0.1.0] - 2026-09-21
 
 ### Added

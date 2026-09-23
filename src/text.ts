@@ -32,3 +32,19 @@ export function normalize(raw: string, maxChars: number): string | undefined {
   if (cleaned.length <= maxChars) return cleaned
   return cleaned.slice(0, maxChars - 1).trimEnd() + "…"
 }
+
+export function isEcho(suggestion: string, previous: string): boolean {
+  const strip = (value: string) =>
+    value
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase()
+      .replace(/[.!?,;:]+$/, "")
+  const next = strip(suggestion)
+  const last = strip(previous)
+  if (!next || !last) return false
+  if (next === last) return true
+  if (next.length >= 12 && last.includes(next)) return true
+  if (last.length >= 12 && next.includes(last)) return true
+  return false
+}
