@@ -1,6 +1,6 @@
 {
   "name": "opencode-ghost",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Claude Code-style next-prompt suggestions in the opencode TUI, shown as dimmed ghost text and accepted with Tab. An opencode plugin.",
   "type": "module",
   "license": "MIT",

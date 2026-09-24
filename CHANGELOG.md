@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-24
+
 ### Added
 
 - Slash-command autocomplete while typing: the remaining command name is
@@ -18,7 +20,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pulls the full line back.
 - New option `argHints` (per-command argument option lists for the completion
   hints).
-
 ## [0.1.1] - 2026-09-24
 
 ### Added
@@ -55,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Options for `model`, `acceptKeys`, `maxChars`, `idleDelayMs`,
   `recentMessages` and `system`.
 
-[Unreleased]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/ozandogrultan/opencode-ghost/releases/tag/v0.1.0
