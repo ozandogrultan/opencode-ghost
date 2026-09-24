@@ -10,7 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Optional Left-arrow navigation back to the home screen from an empty prompt.
-- Recovery of abandoned hidden suggestion sessions on TUI startup when a marker directory is configured.
+- Recovery of abandoned hidden suggestion sessions via a periodic sweep that
+  needs no configuration (an optional marker directory adds extra
+  crash-recovery tracking).
 
 ### Fixed
 
@@ -20,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   deletion now passes the session directory, and a periodic sweep retries
   abandoned sessions (including corrupt or zero-byte markers) instead of
   leaving them behind for the life of the TUI process.
+- Delete hidden suggestion sessions reliably: every hidden-session call is
+  scoped to the visible session's project directory, hidden sessions carry a
+  metadata tag that survives the server's automatic title generation, a
+  configuration-free sweep reaps leftovers by listing sessions, and shutdown
+  deletes in-flight generations. Marker-tracked sessions are removed even
+  after being retitled.
 
 ## [0.1.0] - 2026-09-21
 

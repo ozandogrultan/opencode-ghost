@@ -88,7 +88,7 @@ Pass an options object as the second element of the plugin tuple:
 | `recentMessages` | `number`   | `10`                  | How many recent messages feed the suggestion prompt.                  |
 | `system`         | `string`   | built-in              | Override the system prompt sent to the suggestion model.              |
 | `backOnEmptyLeft` | `boolean`  | `false`               | Return to the home screen with Left when the prompt is empty.         |
-| `internalSessionMarkerDir` | `string` | unset       | Directory for tracking and recovering interrupted hidden sessions.   |
+| `internalSessionMarkerDir` | `string` | unset       | Optional extra crash-recovery tracking. A configuration-free sweep already reaps leftover hidden sessions, so this is only an additional safety net. |
 
 ## Commands
 
@@ -102,7 +102,11 @@ When enabling, a suggestion is generated immediately for the current session.
   session's recent messages.
 - Asks a model (your `small_model` by default) for one short next user message,
   in a throwaway hidden session with tools disabled; the session is deleted
-  immediately afterwards.
+  immediately afterwards. Every hidden-session call is scoped to the current
+  session's project directory, hidden sessions carry a metadata tag that
+  survives the server's automatic title generation, and a periodic sweep (plus
+  shutdown cleanup) reaps any leftovers — including sessions orphaned by a
+  crash — with no configuration required.
 - Renders the result through the `session_prompt` host slot into the prompt's
   `hint` row, and accepts it into the input via the prompt ref.
 
