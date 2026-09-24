@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Slash-command autocomplete while typing: the remaining command name is
+  ghosted from configured commands, skills, and builtin TUI commands, with
+  known argument options shown as `[a | b]` hints and completed with `Tab`
+  (staged: command name, then arguments). Purely local — no model calls.
+- Prompt-history ghost while typing: if the line being typed is a prefix of a
+  message already sent in the same session, the rest is ghosted and `Tab`
+  pulls the full line back.
+- New option `argHints` (per-command argument option lists for the completion
+  hints).
+
 ## [0.1.1] - 2026-09-24
 
 ### Added

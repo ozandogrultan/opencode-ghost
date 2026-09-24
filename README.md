@@ -17,6 +17,14 @@ dimmed ghost text you accept with <kbd>Tab</kbd> (or <kbd>→</kbd>).
   default) for one line that sounds like you.
 - **Ghost text, `Tab` to accept.** The suggestion renders under the prompt;
   `Tab` or `→` drops it into the input so you can edit and send.
+- **Slash-command autocomplete while typing.** When the input starts with `/`,
+  the remaining command name is ghosted from configured commands, skills, and
+  the builtin TUI commands; known argument options render as `[a | b]` hints.
+  Tab completes in stages (command name, then each argument). Purely local — no
+  model calls.
+- **History ghost while typing.** If the line you are typing is a prefix of a
+  message you already sent in the same session, the rest of it is ghosted as
+  well, Tab pulls the full line back. Also purely local.
 - **`/suggest` toggles it.** State is stored in the plugin KV.
 
 ## Requirements
@@ -89,6 +97,7 @@ Pass an options object as the second element of the plugin tuple:
 | `system`         | `string`   | built-in              | Override the system prompt sent to the suggestion model.              |
 | `backOnEmptyLeft` | `boolean`  | `false`               | Return to the home screen with Left when the prompt is empty.         |
 | `internalSessionMarkerDir` | `string` | unset       | Optional extra crash-recovery tracking. A configuration-free sweep already reaps leftover hidden sessions, so this is only an additional safety net. |
+| `argHints` | `Record<string, string[]>` | `{}` | Argument option lists per slash command, shown as `[a \| b \| c]` after the command name and completed with Tab, e.g. `"/keepwarm": ["6h", "always", "off", "status"]`. |
 
 ## Commands
 

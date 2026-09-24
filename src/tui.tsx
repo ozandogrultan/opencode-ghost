@@ -5,6 +5,8 @@ import * as fs from "node:fs"
 import * as path from "node:path"
 import { resolveOptions, type PromptSuggestOptions } from "./options"
 import { clip, isEcho, normalize, parseModel } from "./text"
+import { BUILTIN_COMMANDS } from "./builtins"
+import { completeCommand, type CommandPool } from "./completion"
 
 const HIDDEN_TITLE = "ghost-hidden"
 // Survives the server's automatic title generation, which renames the hidden
@@ -259,6 +261,9 @@ const tui: TuiPlugin = async (api, rawOptions) => {
   sweepTimer.unref?.()
 
   const [ghost, setGhost] = createSignal<{ sessionID: string; text: string } | undefined>()
+  const [completion, setCompletion] = createSignal<
+    { sessionID: string; ghost?: string; insert?: string; args?: string[]; hint?: string } | undefined
+  >()
   let promptRef: TuiPromptRef | undefined
   let timer: ReturnType<typeof setTimeout> | undefined
   let generating = false
@@ -272,6 +277,96 @@ const tui: TuiPlugin = async (api, rawOptions) => {
   }
 
   const currentInput = () => promptRef?.current.input ?? ""
+
+  // Completable commands: configured commands/skills from the server layered
+  // under the builtin TUI slash commands. One config read, refreshed lazily; no
+  // model calls are involved anywhere in completion.
+  let commandPool: CommandPool[] = BUILTIN_COMMANDS
+  let poolFetching = false
+  let poolFetchedAt = 0
+  const refreshPool = async () => {
+    if (poolFetching) return
+    poolFetching = true
+    try {
+      const result = await api.client.command.list()
+      const rows = (result as { data?: unknown }).data
+      if (Array.isArray(rows)) {
+        const configured: CommandPool[] = rows
+          .map((row) => row as { name?: unknown; description?: unknown })
+          .filter((row) => typeof row.name === "string" && row.name.length > 0)
+          .map((row) => ({
+            name: row.name as string,
+            description: typeof row.description === "string" ? row.description : undefined,
+          }))
+        const seen = new Set(configured.map((command) => `${command.name.toLowerCase()}`))
+        const merged = [
+          ...configured,
+          ...BUILTIN_COMMANDS.filter((command) => !seen.has(command.name.toLowerCase())),
+        ]
+        commandPool = merged.length > 0 ? merged : BUILTIN_COMMANDS
+        poolFetchedAt = Date.now()
+      }
+    } catch {
+      // Keep the current pool; the poll loop retries on the next TTL window.
+    } finally {
+      poolFetching = false
+    }
+  }
+  void refreshPool()
+
+  // History ghost while typing: if the input is a prefix of a message the user
+  // already sent in this session, offer the rest of it. No model involved.
+  const historyCandidate = (sessionID: string, input: string) => {
+    const wants = input.replace(/\s+/g, " ").trimEnd()
+    if (wants.length < 2 || /\n/.test(input)) return undefined
+    const collapsed = wants.toLowerCase()
+    const messages = api.state.session.messages(sessionID).filter((m) => m.role === "user")
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const text = api.state
+        .part(messages[i].id)
+        .filter((part) => part.type === "text")
+        .map((part) => (part.type === "text" ? part.text : ""))
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim()
+      if (text.length <= collapsed.length) continue
+      if (!text.toLowerCase().startsWith(collapsed)) continue
+      return { ghost: text.slice(collapsed.length), insert: text }
+    }
+    return undefined
+  }
+
+  const POLL_INTERVAL_MS = 100
+  const POOL_TTL_MS = 60_000
+  let completionKey = ""
+  const pollTimer = setInterval(() => {
+    const sessionID = currentSessionID()
+    if (!sessionID) {
+      if (completion()) setCompletion(undefined)
+      return
+    }
+    const input = promptRef?.current.input ?? ""
+    if (poolFetchedAt && Date.now() - poolFetchedAt > POOL_TTL_MS) void refreshPool()
+    const key = `${sessionID}\u0000${input}`
+    const found = input.startsWith("/")
+      ? completeCommand(input, commandPool, opts.argHints)
+      : historyCandidate(sessionID, input)
+    if (completionKey === `${key}\u0000${found?.insert ?? ""}`) return
+    completionKey = `${key}\u0000${found?.insert ?? ""}`
+    setCompletion(
+      found
+        ? {
+            sessionID,
+            ghost: found.ghost,
+            insert: found.insert,
+            args: "args" in found ? found.args : undefined,
+            hint: "hint" in found ? found.hint : undefined,
+          }
+        : undefined,
+    )
+    setAcceptVisible(Boolean(found?.insert) || Boolean(ghost()))
+  }, POLL_INTERVAL_MS)
+  pollTimer.unref?.()
 
   const isEnabled = () => {
     try {
@@ -400,11 +495,11 @@ const tui: TuiPlugin = async (api, rawOptions) => {
       priority: 100,
       bindings: opts.acceptKeys.map((key) => ({
         key,
-        desc: "Accept suggested prompt",
+        desc: "Accept suggested prompt or completion",
         preventDefault: true,
         cmd: () => {
-          accept()
-          return true
+          if (completionAccept()) return true
+          return accept()
         },
       })),
     })
@@ -415,10 +510,28 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     acceptLayer = undefined
   }
 
-  const showGhost = (value: { sessionID: string; text: string } | undefined) => {
-    setGhost(value)
+  let acceptVisible = false
+  const setAcceptVisible = (value: boolean) => {
+    if (acceptVisible === value) return
+    acceptVisible = value
     if (value) enableAccept()
     else disableAccept()
+  }
+
+  const showGhost = (value: { sessionID: string; text: string } | undefined) => {
+    setGhost(value)
+    setAcceptVisible(Boolean(value) || Boolean(completion()?.insert))
+  }
+
+  const completionAccept = () => {
+    const current = completion()
+    if (!current || currentSessionID() !== current.sessionID) return false
+    if (!promptRef || !current.insert) return false
+    completionKey = ""
+    promptRef.set({ input: current.insert, parts: [] })
+    promptRef.focus()
+    setCompletion(undefined)
+    return true
   }
 
   const run = async (sessionID: string) => {
@@ -504,6 +617,13 @@ const tui: TuiPlugin = async (api, rawOptions) => {
           const current = ghost()
           return current && current.sessionID === props.session_id ? current.text : ""
         }
+        const completionText = () => {
+          const current = completion()
+          if (!current || current.sessionID !== props.session_id) return ""
+          if (current.args && current.args.length > 0) return `[${current.args.join(" | ")}]`
+          if (current.hint) return current.hint
+          return current.ghost ?? ""
+        }
         return (
           <api.ui.Prompt
             sessionID={props.session_id}
@@ -511,9 +631,11 @@ const tui: TuiPlugin = async (api, rawOptions) => {
             disabled={props.disabled}
             showPlaceholder={false}
             hint={
-              suggestion() ? (
+              suggestion() || completionText() ? (
                 <box marginLeft={1}>
-                  <text fg={api.theme.current.textMuted}>{suggestion()}</text>
+                  <text fg={api.theme.current.textMuted}>
+                    {completionText() || suggestion()}
+                  </text>
                 </box>
               ) : undefined
             }
@@ -563,6 +685,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
   api.lifecycle.onDispose(() => {
     if (timer) clearTimeout(timer)
     clearInterval(sweepTimer)
+    clearInterval(pollTimer)
     offIdle()
     offStatus()
     backLayer()

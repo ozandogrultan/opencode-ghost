@@ -8,6 +8,7 @@ export type PromptSuggestOptions = {
   idleDelayMs?: number
   recentMessages?: number
   system?: string
+  argHints?: Record<string, string[]>
 }
 
 export type ResolvedOptions = {
@@ -20,6 +21,7 @@ export type ResolvedOptions = {
   idleDelayMs: number
   recentMessages: number
   system: string
+  argHints: Record<string, readonly string[]>
 }
 
 export const DEFAULT_SYSTEM = [
@@ -77,5 +79,13 @@ export function resolveOptions(options: PromptSuggestOptions | undefined): Resol
         ? recentMessages
         : DEFAULTS.recentMessages,
     system: typeof input.system === "string" && input.system.trim() ? input.system : DEFAULT_SYSTEM,
+    argHints:
+      input.argHints && typeof input.argHints === "object" && !Array.isArray(input.argHints)
+        ? Object.fromEntries(
+            Object.entries(input.argHints)
+              .filter(([, value]) => Array.isArray(value) && value.length > 0)
+              .map(([key, value]) => [key.toLowerCase(), [...value]]),
+          )
+        : {},
   }
 }
