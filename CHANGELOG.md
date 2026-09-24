@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-24
+
 ### Changed
 
 - Slash-command completion now stays out of the way of opencode's native slash
@@ -14,7 +16,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Typing ghosts (argument options, prompt history) render inside the prompt
   input box right after the caret instead of the hint row, falling back to the
   hint row when the prompt's editor renderable cannot be located.
-
 ## [0.2.0] - 2026-09-24
 
 ### Added
@@ -65,7 +66,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Options for `model`, `acceptKeys`, `maxChars`, `idleDelayMs`,
   `recentMessages` and `system`.
 
-[Unreleased]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/ozandogrultan/opencode-ghost/releases/tag/v0.1.0
