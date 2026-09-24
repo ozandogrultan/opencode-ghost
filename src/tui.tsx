@@ -262,7 +262,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
 
   const [ghost, setGhost] = createSignal<{ sessionID: string; text: string } | undefined>()
   const [completion, setCompletion] = createSignal<
-    { sessionID: string; ghost?: string; insert?: string; args?: string[]; hint?: string } | undefined
+    { sessionID: string; display: string; insert?: string; drawn: boolean } | undefined
   >()
   let promptRef: TuiPromptRef | undefined
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -336,35 +336,118 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     return undefined
   }
 
+  // In-box ghost: the suggestion is drawn directly into the prompt's text area
+  // right after the caret, refreshed each frame. When the text area cannot be
+  // located (host layout change), completion falls back to the hint row.
+  let inBoxGhost: { x: number; y: number; text: string } | undefined
+  const drawGhost = (buffer: unknown) => {
+    const target = inBoxGhost
+    if (!target) return
+    try {
+      const drawn = buffer as { drawText?: (text: string, x: number, y: number, fg: unknown) => void }
+      drawn.drawText?.(target.text, target.x, target.y, api.theme.current.textMuted)
+    } catch {
+      // Rendering must never fail because of the overlay.
+    }
+  }
+  const postProcesses = (api.renderer as unknown as { postProcessFns?: unknown[] } | undefined)
+    ?.postProcessFns
+  if (Array.isArray(postProcesses)) postProcesses.push(drawGhost)
+  const removeOverlay = () => {
+    if (!postProcesses) return
+    const index = postProcesses.indexOf(drawGhost)
+    if (index >= 0) postProcesses.splice(index, 1)
+  }
+
+  // Locate the prompt's editor renderable inside the layout tree.
+  const findTextarea = (): unknown => {
+    const root = (api.renderer as unknown as { root?: unknown }).root as
+      | { getChildren?: () => unknown[] }
+      | undefined
+    if (!root) return undefined
+    const stack: unknown[] = [root]
+    while (stack.length) {
+      const node = stack.pop() as
+        | {
+            editBuffer?: unknown
+            editorView?: unknown
+            visualCursor?: { visualRow?: number; visualCol?: number }
+            screenX?: number
+            screenY?: number
+            getChildren?: () => unknown[]
+          }
+        | undefined
+      if (!node) continue
+      if (node.editBuffer && node.editorView && node.visualCursor) return node
+      const children = typeof node.getChildren === "function" ? node.getChildren() : []
+      stack.push(...children)
+    }
+    return undefined
+  }
+
+  const placeInBoxGhost = (text: string): boolean => {
+    inBoxGhost = undefined
+    const textarea = findTextarea() as
+      | { screenX?: unknown; screenY?: unknown; visualCursor?: { visualRow?: number; visualCol?: number } }
+      | undefined
+    if (
+      !textarea ||
+      typeof textarea.screenX !== "number" ||
+      typeof textarea.screenY !== "number"
+    ) {
+      return false
+    }
+    const cursor = textarea.visualCursor ?? {}
+    inBoxGhost = {
+      x: textarea.screenX + (typeof cursor.visualCol === "number" ? cursor.visualCol : 0),
+      y: textarea.screenY + (typeof cursor.visualRow === "number" ? cursor.visualRow : 0),
+      text,
+    }
+    return true
+  }
+
   const POLL_INTERVAL_MS = 100
   const POOL_TTL_MS = 60_000
   let completionKey = ""
   const pollTimer = setInterval(() => {
     const sessionID = currentSessionID()
     if (!sessionID) {
+      inBoxGhost = undefined
       if (completion()) setCompletion(undefined)
       return
     }
     const input = promptRef?.current.input ?? ""
     if (poolFetchedAt && Date.now() - poolFetchedAt > POOL_TTL_MS) void refreshPool()
+    // `/name` with no space yet is opencode's native slash menu; the plugin
+    // stays out of its way. Our slash completion only covers `/name args...`.
+    const found = !input.startsWith("/")
+      ? historyCandidate(sessionID, input)
+      : input.includes(" ")
+        ? completeCommand(input, commandPool, opts.argHints)
+        : undefined
     const key = `${sessionID}\u0000${input}`
-    const found = input.startsWith("/")
-      ? completeCommand(input, commandPool, opts.argHints)
-      : historyCandidate(sessionID, input)
-    if (completionKey === `${key}\u0000${found?.insert ?? ""}`) return
-    completionKey = `${key}\u0000${found?.insert ?? ""}`
+    const insert = found?.insert ?? ""
+    if (completionKey === `${key}\u0000${insert}`) return
+    completionKey = `${key}\u0000${insert}`
+    let display = ""
+    if (found) {
+      const args = "args" in found ? found.args : undefined
+      const hint = "hint" in found ? found.hint : undefined
+      display = args && args.length > 0 ? `[${args.join(" | ")}]` : (found.ghost ?? hint ?? "")
+    }
+    inBoxGhost = undefined
+    const drawn = display ? placeInBoxGhost(display) : false
     setCompletion(
       found
         ? {
             sessionID,
-            ghost: found.ghost,
-            insert: found.insert,
-            args: "args" in found ? found.args : undefined,
-            hint: "hint" in found ? found.hint : undefined,
+            display,
+            insert,
+            drawn,
           }
         : undefined,
     )
-    setAcceptVisible(Boolean(found?.insert) || Boolean(ghost()))
+    setAcceptVisible(Boolean(insert) || Boolean(ghost()))
   }, POLL_INTERVAL_MS)
   pollTimer.unref?.()
 
@@ -620,9 +703,9 @@ const tui: TuiPlugin = async (api, rawOptions) => {
         const completionText = () => {
           const current = completion()
           if (!current || current.sessionID !== props.session_id) return ""
-          if (current.args && current.args.length > 0) return `[${current.args.join(" | ")}]`
-          if (current.hint) return current.hint
-          return current.ghost ?? ""
+          // In in-box mode `drawGhost` handles the text; the hint row then stays free.
+          if (current.drawn) return ""
+          return current.display
         }
         return (
           <api.ui.Prompt
@@ -686,6 +769,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     if (timer) clearTimeout(timer)
     clearInterval(sweepTimer)
     clearInterval(pollTimer)
+    removeOverlay()
     offIdle()
     offStatus()
     backLayer()

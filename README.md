@@ -17,14 +17,14 @@ dimmed ghost text you accept with <kbd>Tab</kbd> (or <kbd>→</kbd>).
   default) for one line that sounds like you.
 - **Ghost text, `Tab` to accept.** The suggestion renders under the prompt;
   `Tab` or `→` drops it into the input so you can edit and send.
-- **Slash-command autocomplete while typing.** When the input starts with `/`,
-  the remaining command name is ghosted from configured commands, skills, and
-  the builtin TUI commands; known argument options render as `[a | b]` hints.
-  Tab completes in stages (command name, then each argument). Purely local — no
-  model calls.
+- **Slash-command argument ghosts while typing.** After `/name `, argument
+  option hints (from `argHints` or learned from builtins) render inside the
+  prompt input box, right after the caret, like Claude Code's inline ghosts.
+  Tab completes the next argument. While the command name is still being typed,
+  opencode's own slash menu stays in charge. Purely local — no model calls.
 - **History ghost while typing.** If the line you are typing is a prefix of a
-  message you already sent in the same session, the rest of it is ghosted as
-  well, Tab pulls the full line back. Also purely local.
+  message you already sent in the same session, the rest of it is ghosted in
+  the box as well; Tab pulls the full line back. Also purely local.
 - **`/suggest` toggles it.** State is stored in the plugin KV.
 
 ## Requirements
@@ -125,6 +125,11 @@ When enabling, a suggestion is generated immediately for the current session.
   through that slot, so this plugin replaces the default prompt component. It
   forwards `on_submit`, `ref`, `right`, `visible`, and `disabled`, and cannot be
   combined with another plugin that also renders `session_prompt`.
+- **Ghost placement.** Typing ghosts are drawn directly into the prompt
+  buffer after the caret (opencode exposes no inline-completion API, so the
+  plugin overlays the prompt's editor renderable). When the layout cannot be
+  located, they fall back to the prompt's hint row. The next-prompt
+  suggestion always uses the hint row.
 - **`hint` row.** While a suggestion is showing it occupies the prompt's hint
   row, so the working-directory label is hidden until you accept or type.
 - **Cost.** One small-model call per turn while enabled. Point `model` at a

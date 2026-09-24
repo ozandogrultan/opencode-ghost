@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Slash-command completion now stays out of the way of opencode's native slash
+  menu (the plugin only ghosts argument options after a complete `/name `).
+- Typing ghosts (argument options, prompt history) render inside the prompt
+  input box right after the caret instead of the hint row, falling back to the
+  hint row when the prompt's editor renderable cannot be located.
+
 ## [0.2.0] - 2026-09-24
 
 ### Added
@@ -20,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pulls the full line back.
 - New option `argHints` (per-command argument option lists for the completion
   hints).
+
 ## [0.1.1] - 2026-09-24
 
 ### Added
