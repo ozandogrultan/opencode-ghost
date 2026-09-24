@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-24
+
 ### Added
 
 - Optional Left-arrow navigation back to the home screen from an empty prompt.
@@ -28,7 +30,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   configuration-free sweep reaps leftovers by listing sessions, and shutdown
   deletes in-flight generations. Marker-tracked sessions are removed even
   after being retitled.
-
 ## [0.1.0] - 2026-09-21
 
 ### Added
@@ -42,5 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Options for `model`, `acceptKeys`, `maxChars`, `idleDelayMs`,
   `recentMessages` and `system`.
 
-[Unreleased]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/ozandogrultan/opencode-ghost/releases/tag/v0.1.0
