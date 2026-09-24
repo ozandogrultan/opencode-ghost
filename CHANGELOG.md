@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Prevent suggestions from repeating the user's previous message.
 - Trigger suggestions from the current session-status idle event.
+- Remove hidden suggestion sessions and their markers when generation fails:
+  deletion now passes the session directory, and a periodic sweep retries
+  abandoned sessions (including corrupt or zero-byte markers) instead of
+  leaving them behind for the life of the TUI process.
 
 ## [0.1.0] - 2026-09-21
 

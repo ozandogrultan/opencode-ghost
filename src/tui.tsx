@@ -7,6 +7,8 @@ import { resolveOptions, type PromptSuggestOptions } from "./options"
 import { clip, isEcho, normalize, parseModel } from "./text"
 
 const HIDDEN_TITLE = "ghost-hidden"
+const ORPHAN_SWEEP_INTERVAL_MS = 30_000
+const ORPHAN_MIN_AGE_MS = 15_000
 const MAX_MESSAGE_CHARS = 800
 const MAX_TRANSCRIPT_CHARS = 6000
 const ENABLED_KEY = "ghost.enabled"
@@ -73,36 +75,113 @@ function processIsRunning(pid: number): boolean {
   }
 }
 
+function isNotFound(error: unknown): boolean {
+  const candidate = error as { status?: number; response?: { status?: number }; message?: string }
+  const status = candidate?.status ?? candidate?.response?.status
+  if (status === 404) return true
+  return typeof candidate?.message === "string" && /not found/i.test(candidate.message)
+}
+
 const tui: TuiPlugin = async (api, rawOptions) => {
   const opts = resolveOptions(rawOptions as PromptSuggestOptions | undefined)
-  const recoverOrphans = async () => {
+  const activeHidden = new Set<string>()
+
+  const markerPaths = () => {
     const dir = opts.internalSessionMarkerDir
-    if (!dir) return
-    let entries: string[]
+    if (!dir) return [] as { entry: string; marker: string; ageMs: number }[]
+    let names: string[]
     try {
-      entries = fs.readdirSync(dir).filter((entry) => /^id-ses_[\w-]+$/.test(entry))
+      names = fs.readdirSync(dir).filter((entry) => /^id-ses_[\w-]+$/.test(entry))
     } catch {
-      return
+      return [] as { entry: string; marker: string; ageMs: number }[]
     }
-    for (const entry of entries) {
+    const now = Date.now()
+    return names.map((entry) => {
       const marker = path.join(dir, entry)
+      let ageMs = Number.POSITIVE_INFINITY
       try {
-        const { directory, pid } = JSON.parse(fs.readFileSync(marker, "utf8")) as {
-          directory: string
-          pid: number
-        }
-        if (!directory || !Number.isInteger(pid) || pid <= 0 || processIsRunning(pid)) continue
-        const sessionID = entry.slice(3)
-        const found = await api.client.session.get({ sessionID, directory })
-        if (found.data?.title !== HIDDEN_TITLE) continue
-        const result = await api.client.session.delete({ sessionID, directory })
-        if (result.data === true) fs.rmSync(marker, { force: true })
+        ageMs = now - fs.statSync(marker).mtimeMs
       } catch {
-        // Keep the marker for the next startup if the server is unavailable.
+        // Unreadable mtime: treat as old so it gets swept.
+      }
+      return { entry, marker, ageMs }
+    })
+  }
+
+  // Deletes a ghost session and reports whether it is confirmed gone. A
+  // `directory` is passed whenever known: the server scopes deletion by it, and
+  // omitting it is why failed generations left sessions behind. A non-true
+  // delete response is re-checked by existence rather than assumed to have
+  // failed, so a session already removed (or removed concurrently) still counts
+  // as gone and its marker is not kept forever.
+  const removeHiddenSession = async (sessionID: string, directory?: string): Promise<boolean> => {
+    const target = directory ? { sessionID, directory } : { sessionID }
+    try {
+      const result = await api.client.session.delete(target)
+      if (result.data === true) return true
+    } catch (error) {
+      // Only a definitive "not found" means it is gone; anything else (server
+      // down, permissions) must keep the marker so a later sweep retries.
+      return isNotFound(error)
+    }
+    try {
+      await api.client.session.get(target)
+      return false
+    } catch (error) {
+      return isNotFound(error)
+    }
+  }
+
+  // Reaps abandoned ghost sessions in this process and from crashed ones. It
+  // deliberately does not skip markers by owner pid anymore: a failed delete in
+  // a still-running TUI left its own markers behind forever, because the old
+  // startup-only recovery treated a live pid as "not orphaned". Fresh markers
+  // (younger than ORPHAN_MIN_AGE_MS) are left alone so an in-flight generation
+  // in another process is not swept mid-write.
+  const sweepOrphans = async () => {
+    for (const { entry, marker, ageMs } of markerPaths()) {
+      const sessionID = entry.slice(3)
+      if (activeHidden.has(sessionID)) continue
+      let directory: string | undefined
+      let pid: number | undefined
+      try {
+        const parsed = JSON.parse(fs.readFileSync(marker, "utf8")) as {
+          directory?: string
+          pid?: number
+        }
+        if (typeof parsed?.directory === "string" && parsed.directory) directory = parsed.directory
+        if (Number.isInteger(parsed?.pid) && (parsed.pid as number) > 0) pid = parsed.pid as number
+      } catch {
+        // Corrupt/empty marker: no directory or pid; still attempt cleanup.
+      }
+      // A fresh marker whose owner is still running may be an in-flight
+      // generation in another TUI. A dead owner, or one quiet past the grace
+      // window, is an orphan.
+      if (pid !== undefined && ageMs < ORPHAN_MIN_AGE_MS && processIsRunning(pid)) continue
+
+      let title: string | undefined
+      try {
+        const found = await api.client.session.get(directory ? { sessionID, directory } : { sessionID })
+        title = found.data?.title
+      } catch {
+        title = undefined
+      }
+      // Never delete a session we can still identify as non-ghost.
+      if (title !== undefined && title !== HIDDEN_TITLE) continue
+
+      if (await removeHiddenSession(sessionID, directory)) {
+        try {
+          fs.rmSync(marker, { force: true })
+        } catch {
+          // best effort
+        }
       }
     }
   }
-  void recoverOrphans()
+  void sweepOrphans()
+  const sweepTimer = setInterval(() => void sweepOrphans(), ORPHAN_SWEEP_INTERVAL_MS)
+  sweepTimer.unref?.()
+
   const [ghost, setGhost] = createSignal<{ sessionID: string; text: string } | undefined>()
   let promptRef: TuiPromptRef | undefined
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -186,10 +265,13 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     if (markerDir && pending) markPending(markerDir, pending)
 
     let tempID: string | undefined
+    let createdDirectory: string | undefined
     try {
       const created = await api.client.session.create({ title: HIDDEN_TITLE })
       tempID = created.data?.id
       if (!tempID) return undefined
+      createdDirectory = created.data?.directory
+      activeHidden.add(tempID)
       if (markerDir && pending) markSession(markerDir, pending, tempID, created.data!.directory)
 
       const result = await api.client.session.prompt({
@@ -212,12 +294,11 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     } finally {
       let deleted = false
       if (tempID) {
-        try {
-          const result = await api.client.session.delete({ sessionID: tempID })
-          deleted = result.data === true
-        } catch {
-          // The marker remains so the next TUI startup can retry.
-        }
+        activeHidden.delete(tempID)
+        // Pass the directory and retry-based confirmation so a failed
+        // generation still removes its hidden session. If the session truly
+        // cannot be removed yet, the marker is kept and sweepOrphans retries.
+        deleted = await removeHiddenSession(tempID, createdDirectory)
       }
       if (markerDir && pending) unmarkSession(markerDir, pending, tempID, deleted)
     }
@@ -392,6 +473,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
 
   api.lifecycle.onDispose(() => {
     if (timer) clearTimeout(timer)
+    clearInterval(sweepTimer)
     offIdle()
     offStatus()
     backLayer()
