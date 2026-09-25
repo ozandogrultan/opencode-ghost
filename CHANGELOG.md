@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-09-25
+
 ### Changed
 
 - All ghosts (next-message suggestion and typing completions) render inside
@@ -17,7 +19,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   relative slot offset, and clear reliably when the input no longer matches.
 - `GHOST_DEBUG=1` makes the plugin emit diagnostic toasts about ghost
   placement (temporary, for localization feedback).
-
 ## [0.2.1] - 2026-09-24
 
 ### Changed
@@ -77,7 +78,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Options for `model`, `acceptKeys`, `maxChars`, `idleDelayMs`,
   `recentMessages` and `system`.
 
-[Unreleased]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.1.0...v0.1.1
