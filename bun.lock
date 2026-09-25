@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "opencode-prompt-suggest",
+      "name": "opencode-ghost",
       "dependencies": {
         "solid-js": "^1.9.12",
       },
