@@ -26,10 +26,8 @@ test("filters argument options by the word in progress", () => {
   expect(result?.insert).toBe("/keepwarm always ")
 })
 
-test("shows the description when there are no argument hints", () => {
-  const result = completeCommand("/new ", pool)
-  expect(result?.hint).toBe("New session")
-  expect(result?.ghost).toBeUndefined()
+test("returns nothing for a command without argument hints", () => {
+  expect(completeCommand("/new ", pool)).toBeUndefined()
 })
 
 test("returns nothing for an unknown command", () => {

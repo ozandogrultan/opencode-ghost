@@ -17,14 +17,20 @@ dimmed ghost text you accept with <kbd>Tab</kbd> (or <kbd>→</kbd>).
   default) for one line that sounds like you.
 - **Ghost text, `Tab` to accept.** The suggestion renders under the prompt;
   `Tab` or `→` drops it into the input so you can edit and send.
-- **Slash-command argument ghosts while typing.** After `/name `, argument
-  option hints (from `argHints` or learned from builtins) render inside the
-  prompt input box, right after the caret, like Claude Code's inline ghosts.
-  Tab completes the next argument. While the command name is still being typed,
-  opencode's own slash menu stays in charge. Purely local — no model calls.
+- **Slash-command argument ghosts while typing.** After `/name `, accepted
+  argument options (from `argHints`) render inside the prompt input box, right
+  after the caret, as `[a | b | c]` like Claude Code. Running out of options or
+  naming a command with no configured hints shows no ghost — command and skill
+  descriptions are never suggested as if they were arguments. Tab completes the
+  next argument. While the command name is still being typed, opencode's own
+  slash menu stays in charge. Purely local — no model calls.
 - **History ghost while typing.** If the line you are typing is a prefix of a
   message you already sent in the same session, the rest of it is ghosted in
   the box as well; Tab pulls the full line back. Also purely local.
+- **Distinct ghost styling.** Slash-command ghosts use the theme accent color;
+  all other ghosts (history completion, next-message suggestion) are dimmed so
+  they cannot be mistaken for typed text. Ghosts are clipped to the prompt box
+  and never spill past it.
 - **`/suggest` toggles it.** State is stored in the plugin KV.
 
 ## Requirements
@@ -97,7 +103,7 @@ Pass an options object as the second element of the plugin tuple:
 | `system`         | `string`   | built-in              | Override the system prompt sent to the suggestion model.              |
 | `backOnEmptyLeft` | `boolean`  | `false`               | Return to the home screen with Left when the prompt is empty.         |
 | `internalSessionMarkerDir` | `string` | unset       | Optional extra crash-recovery tracking. A configuration-free sweep already reaps leftover hidden sessions, so this is only an additional safety net. |
-| `argHints` | `Record<string, string[]>` | `{}` | Argument option lists per slash command, shown as `[a \| b \| c]` after the command name and completed with Tab, e.g. `"/keepwarm": ["6h", "always", "off", "status"]`. |
+| `argHints` | `Record<string, string[]>` | `{}` | Argument option lists per slash command, shown as `[a \| b \| c]` after a complete `/name ` and completed with Tab, e.g. `"/keepwarm": ["6h", "always", "off", "status"]`. Commands without an entry suggest no arguments. |
 
 ## Commands
 

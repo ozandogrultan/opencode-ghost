@@ -341,10 +341,11 @@ const tui: TuiPlugin = async (api, rawOptions) => {
   // walking the layout tree). Uses the normal render pipeline, so it is visible
   // wherever the prompt is. When the editor or container cannot be located
   // (host layout change) completion falls back to the hint row.
+  type GhostColor = typeof api.theme.current.textMuted
   const [inBox, setInBox] = createSignal<
-    { sessionID: string; x: number; y: number; text: string } | undefined
+    { sessionID: string; x: number; y: number; text: string; width: number; color: GhostColor; opacity: number } | undefined
   >()
-  let slotNode: { screenX?: number; screenY?: number } | undefined
+  let slotNode: { screenX?: number; screenY?: number; width?: number } | undefined
   // Locate the prompt's editor renderable inside the layout tree.
   const findTextarea = (): unknown => {
     const root = (api.renderer as unknown as { root?: unknown }).root as
@@ -371,10 +372,20 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     return undefined
   }
 
-  const placeInBoxGhost = (sessionID: string, text: string): boolean => {
+  const placeInBoxGhost = (
+    sessionID: string,
+    text: string,
+    color: GhostColor,
+    opacity: number,
+  ): boolean => {
     setInBox(undefined)
     const textarea = findTextarea() as
-      | { screenX?: unknown; screenY?: unknown; visualCursor?: { visualRow?: number; visualCol?: number } }
+      | {
+          screenX?: unknown
+          screenY?: unknown
+          width?: unknown
+          visualCursor?: { visualRow?: number; visualCol?: number }
+        }
       | undefined
     if (
       !textarea ||
@@ -384,6 +395,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
       return false
     }
     const cursor = textarea.visualCursor ?? {}
+    const visualCol = typeof cursor.visualCol === "number" ? cursor.visualCol : 0
     // Overlay coordinates are relative to the slot container (it anchors the
     // absolute overlay), so subtract its screen origin from the editor's.
     if (
@@ -393,9 +405,19 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     ) {
       return false
     }
-    const x = textarea.screenX - slotNode.screenX + (typeof cursor.visualCol === "number" ? cursor.visualCol : 0)
+    const x = textarea.screenX - slotNode.screenX + visualCol
     const y = textarea.screenY - slotNode.screenY + (typeof cursor.visualRow === "number" ? cursor.visualRow : 0)
-    setInBox({ sessionID, x, y, text })
+    // Keep the ghost inside the prompt box: clip it to the editor's remaining
+    // width so it never spills past the box's right edge.
+    const editorWidth = typeof textarea.width === "number" ? textarea.width : undefined
+    const width =
+      editorWidth !== undefined
+        ? editorWidth - visualCol
+        : typeof slotNode.width === "number"
+          ? slotNode.width - x
+          : undefined
+    if (width === undefined || width <= 0) return false
+    setInBox({ sessionID, x, y, text, width, color, opacity })
     return true
   }
 
@@ -413,21 +435,27 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     }
     const input = promptRef?.current.input ?? ""
     if (poolFetchedAt && Date.now() - poolFetchedAt > POOL_TTL_MS) void refreshPool()
+    const isSlash = input.startsWith("/")
+    const startsEmpty = !input.trim()
     // `/name` with no space yet is opencode's native slash menu; the plugin
     // stays out of its way. Our slash completion only covers `/name args...`.
-    const found = !input.startsWith("/")
+    const found = !isSlash
       ? historyCandidate(sessionID, input)
       : input.includes(" ")
         ? completeCommand(input, commandPool, opts.argHints)
         : undefined
     let display = ""
     let insert = ""
+    // Slash-command completions are tinted like commands and kept at full
+    // strength; every other ghost (history, next-message suggestion) is dimmed
+    // so it cannot be mistaken for typed text.
+    const color = isSlash ? api.theme.current.accent : api.theme.current.textMuted
+    const opacity = isSlash ? 1 : 0.6
     if (found) {
       const args = "args" in found ? found.args : undefined
-      const hint = "hint" in found ? found.hint : undefined
       insert = found.insert ?? ""
-      display = args && args.length > 0 ? `[${args.join(" | ")}]` : (found.ghost ?? hint ?? "")
-    } else if (!input.trim()) {
+      display = args && args.length > 0 ? `[${args.join(" | ")}]` : (found.ghost ?? "")
+    } else if (startsEmpty) {
       // Empty prompt: the model's next-message suggestion is ghosted in the
       // box as well (the accept layer's `accept()` handles Tab for it).
       const next = ghost()
@@ -438,7 +466,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     const key = `${sessionID}\u0000${input}\u0000${display}`
     if (completionKey === key) return
     completionKey = key
-    const drawn = display ? placeInBoxGhost(sessionID, display) : false
+    const drawn = display ? placeInBoxGhost(sessionID, display, color, opacity) : false
     if (!drawn) setInBox(undefined)
     setCompletion(
       found
@@ -706,7 +734,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
         return (
           <box
             position="relative"
-            ref={(ref: { screenX?: number; screenY?: number }) => {
+            ref={(ref: { screenX?: number; screenY?: number; width?: number }) => {
               slotNode = ref
             }}
           >
@@ -727,8 +755,19 @@ const tui: TuiPlugin = async (api, rawOptions) => {
               }}
             />
             {overlay() ? (
-              <box position="absolute" left={overlay()!.x} top={overlay()!.y} zIndex={100}>
-                <text fg={api.theme.current.textMuted}>{overlay()!.text}</text>
+              <box
+                position="absolute"
+                left={overlay()!.x}
+                top={overlay()!.y}
+                width={overlay()!.width}
+                height={1}
+                overflow="hidden"
+                opacity={overlay()!.opacity}
+                zIndex={100}
+              >
+                <text fg={overlay()!.color} wrapMode="none" truncate>
+                  {overlay()!.text}
+                </text>
               </box>
             ) : undefined}
           </box>

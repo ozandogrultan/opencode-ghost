@@ -16,8 +16,6 @@ export type Completion = {
   insert?: string
   /** Argument options shown as `[a | b]`, filtered by the word in progress. */
   args?: string[]
-  /** Non-insertable hint text shown when nothing can be completed. */
-  hint?: string
 }
 
 /** Parse leading `/name args...` from the input; `args` is "" until a space exists. */
@@ -54,7 +52,6 @@ export function completeCommand(
       const hints = argHints[lower]
       return {
         args: hints ? [...hints] : undefined,
-        hint: hints ? undefined : exact.description,
         insert: `/${exact.name} `,
       }
     }
@@ -66,18 +63,13 @@ export function completeCommand(
 
   // `/name args...`: complete the in-progress argument word against hints.
   const hintList = argHints[lower]
-  if (hintList) {
-    const matches = matchOptions(parsed.args, hintList)
-    if (matches) {
-      const completed = parsed.args + matches[0].slice(parsed.args.length)
-      return {
-        args: matches,
-        ghost: matches[0].slice(parsed.args.length),
-        insert: `/${parsed.name} ${completed} `,
-      }
-    }
-    return undefined
+  if (!hintList) return undefined
+  const matches = matchOptions(parsed.args, hintList)
+  if (!matches) return undefined
+  const completed = parsed.args + matches[0].slice(parsed.args.length)
+  return {
+    args: matches,
+    ghost: matches[0].slice(parsed.args.length),
+    insert: `/${parsed.name} ${completed} `,
   }
-  if (exact && parsed.args === "") return { hint: exact.description }
-  return undefined
 }
