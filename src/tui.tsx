@@ -496,9 +496,8 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     let display = ""
     let insert = ""
     let wrap = false
-    // Slash-command completions are tinted like commands; every ghost is dimmed
-    // so it cannot be mistaken for typed text.
-    const color = isSlash ? api.theme.current.accent : api.theme.current.textMuted
+    // Every ghost is grey and dimmed so it cannot be mistaken for typed text.
+    const color = api.theme.current.textMuted
     const opacity = GHOST_OPACITY
     if (found) {
       const args = "args" in found ? found.args : undefined

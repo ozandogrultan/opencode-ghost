@@ -17,21 +17,23 @@ dimmed ghost text you accept with <kbd>Tab</kbd> (or <kbd>→</kbd>).
   default) for one line that sounds like you.
 - **Ghost text, `Tab` to accept.** The suggestion renders under the prompt;
   `Tab` or `→` drops it into the input so you can edit and send.
-- **Slash-command argument ghosts while typing.** After `/name `, accepted
-  argument options (from `argHints`) render inside the prompt input box, right
-  after the caret, as `[a | b | c]` like Claude Code. Running out of options or
-  naming a command with no configured hints shows no ghost — command and skill
-  descriptions are never suggested as if they were arguments. Tab completes the
-  next argument. While the command name is still being typed, opencode's own
-  slash menu stays in charge. Purely local — no model calls.
+- **Slash-command argument ghosts while typing.** After `/name `, the accepted
+  argument options (from `argHints`) are listed as `[a | b | c]` inside the
+  prompt input box, right after the caret. Once you start typing an argument,
+  the list gives way to a dimmed inline completion of the matching option (e.g.
+  `/keepwarm alw` ghosts `ays`). Running out of options or naming a command
+  with no configured hints shows no ghost — command and skill descriptions are
+  never suggested as if they were arguments. Tab completes the next argument.
+  While the command name is still being typed, opencode's own slash menu stays
+  in charge. Purely local — no model calls.
 - **History ghost while typing.** If the line you are typing is a prefix of a
   message you already sent in the same session, the rest of it is ghosted in
   the box as well; Tab pulls the full line back. Also purely local.
-- **Distinct ghost styling.** Slash-command ghosts use the theme accent color;
-  every ghost is dimmed so it cannot be mistaken for typed text. A
-  next-message suggestion that is wider than the prompt wraps onto extra rows
-  and grows the prompt box (up to five rows) so it stays fully readable; other
-  ghosts are clipped to the box and never spill past it.
+- **Grey, dimmed ghost styling.** Every ghost is grey and dimmed so it cannot
+  be mistaken for typed text. A next-message suggestion that is wider than the
+  prompt wraps onto extra rows and grows the prompt box (up to five rows) so it
+  stays fully readable; other ghosts are clipped to the box and never spill
+  past it.
 - **`/suggest` toggles it.** State is stored in the plugin KV.
 
 ## Requirements

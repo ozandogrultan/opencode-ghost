@@ -66,10 +66,13 @@ export function completeCommand(
   if (!hintList) return undefined
   const matches = matchOptions(parsed.args, hintList)
   if (!matches) return undefined
-  const completed = parsed.args + matches[0].slice(parsed.args.length)
-  return {
-    args: matches,
-    ghost: matches[0].slice(parsed.args.length),
-    insert: `/${parsed.name} ${completed} `,
+  const ghost = matches[0].slice(parsed.args.length)
+  const result: Completion = {
+    ghost,
+    insert: `/${parsed.name} ${parsed.args + ghost} `,
   }
+  // Enumerate the accepted options only while the argument is still empty;
+  // once part of the word is typed, ghost the rest of the matching option.
+  if (parsed.args === "") result.args = matches
+  return result
 }

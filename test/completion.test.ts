@@ -20,9 +20,10 @@ test("shows argument options after a complete command name", () => {
   expect(result?.insert).toBe("/keepwarm 6h ")
 })
 
-test("filters argument options by the word in progress", () => {
+test("ghosts the rest of the matching argument as it is typed", () => {
   const result = completeCommand("/keepwarm a", pool, { keepwarm: ["6h", "always", "off"] })
-  expect(result?.args).toEqual(["always"])
+  expect(result?.args).toBeUndefined()
+  expect(result?.ghost).toBe("lways")
   expect(result?.insert).toBe("/keepwarm always ")
 })
 
