@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Partially typed slash-command arguments now ghost only the remaining letters
+  inline, rather than showing a bracketed option after the typed prefix.
+- All ghosts, including slash-command argument hints, use dimmed grey text.
+
 ## [0.2.5] - 2026-09-25
 
 ### Changed
