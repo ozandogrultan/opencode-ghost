@@ -41,8 +41,8 @@ body:
         - Suggestion never appears
         - Accept key (Tab / →) does nothing
         - Suggestion is wrong or malformed
-        - `/suggest` toggle
-        - Installer (install.sh)
+        - "`/suggest` toggle"
+        - "Installer (install.sh)"
         - Other
     validations:
       required: true
