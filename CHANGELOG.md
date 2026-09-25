@@ -7,12 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-09-25
+
 ### Fixed
 
 - Partially typed slash-command arguments now ghost only the remaining letters
   inline, rather than showing a bracketed option after the typed prefix.
 - All ghosts, including slash-command argument hints, use dimmed grey text.
-
 ## [0.2.5] - 2026-09-25
 
 ### Changed
@@ -111,7 +112,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Options for `model`, `acceptKeys`, `maxChars`, `idleDelayMs`,
   `recentMessages` and `system`.
 
-[Unreleased]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.5...HEAD
+[Unreleased]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.6...HEAD
+[0.2.6]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.2...v0.2.3
