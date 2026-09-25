@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- All ghosts (next-message suggestion and typing completions) render inside
+  the prompt box at the caret; the prompt's hint row (status line) is left
+  alone in every state.
 - Typing ghosts are positioned from absolute screen coordinates (the prompt
   editor's `screenX/screenY` plus the caret's visual column/row) instead of a
   relative slot offset, and clear reliably when the input no longer matches.

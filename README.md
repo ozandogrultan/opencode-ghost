@@ -116,8 +116,9 @@ When enabling, a suggestion is generated immediately for the current session.
   survives the server's automatic title generation, and a periodic sweep (plus
   shutdown cleanup) reaps any leftovers — including sessions orphaned by a
   crash — with no configuration required.
-- Renders the result through the `session_prompt` host slot into the prompt's
-  `hint` row, and accepts it into the input via the prompt ref.
+- Renders the result through the `session_prompt` host slot, ghosted inside
+  the prompt box at the caret, and accepts it into the input via the prompt
+  ref.
 
 ## Caveats
 
@@ -125,13 +126,10 @@ When enabling, a suggestion is generated immediately for the current session.
   through that slot, so this plugin replaces the default prompt component. It
   forwards `on_submit`, `ref`, `right`, `visible`, and `disabled`, and cannot be
   combined with another plugin that also renders `session_prompt`.
-- **Ghost placement.** Typing ghosts are drawn directly into the prompt
-  buffer after the caret (opencode exposes no inline-completion API, so the
-  plugin overlays the prompt's editor renderable). When the layout cannot be
-  located, they fall back to the prompt's hint row. The next-prompt
-  suggestion always uses the hint row.
-- **`hint` row.** While a suggestion is showing it occupies the prompt's hint
-  row, so the working-directory label is hidden until you accept or type.
+- **Ghost placement.** All ghosts (next-message suggestion, typing
+  completions) render inside the prompt box right after the caret; opencode
+  exposes no inline-completion API, so the plugin overlays the prompt's
+  editor renderable and never touches the prompt's hint row.
 - **Cost.** One small-model call per turn while enabled. Point `model` at a
   cheap or free model.
 - **`acceptKeys`.** `tab` is also opencode's agent-cycle key; this plugin only
