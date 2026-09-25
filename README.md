@@ -148,6 +148,12 @@ bun test
 No build step: like other opencode TUI plugins, the package ships TSX source and
 opencode's runtime transpiles it.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the check suite and commit
+conventions, [AGENTS.md](AGENTS.md) for the design rules, and
+[CHANGELOG.md](CHANGELOG.md) for what changed.
+
 ## License
 
 MIT

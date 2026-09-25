@@ -5,10 +5,11 @@ body:
   - type: markdown
     attributes:
       value: |
-        Before filing, please read the "Caveats" section of the
-        [README](../blob/main/README.md) — the plugin owns the `session_prompt`
-        slot and captures `tab`/`→` while a suggestion is visible. Requests that
-        fit the existing direction are easiest to accept.
+        Before filing, please read [AGENTS.md](../blob/main/AGENTS.md) and the
+        "Caveats" section of the [README](../blob/main/README.md) — the plugin
+        owns the `session_prompt` slot and captures `tab`/`→` while a suggestion
+        is visible. Requests that fit the existing direction are easiest to
+        accept.
   - type: textarea
     id: problem
     attributes:
