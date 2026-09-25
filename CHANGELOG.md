@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Root package name in `bun.lock` now matches `package.json` (`opencode-ghost`).
+
 ## [0.2.6] - 2026-09-25
 
 ### Fixed
