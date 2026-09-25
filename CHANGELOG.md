@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Slash-command argument hints are dimmed at the same opacity as every other
+  ghost; they keep the theme accent hue but no longer appear brighter than the
+  next-message and history ghosts.
+
 ## [0.2.4] - 2026-09-25
 
 ### Fixed
