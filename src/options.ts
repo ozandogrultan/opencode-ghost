@@ -49,6 +49,7 @@ export const DEFAULT_SYSTEM = [
 const DEFAULTS = {
   enabled: true,
   acceptKeys: ["tab", "right"],
+  backOnEmptyLeft: true,
   maxChars: 120,
   idleDelayMs: 500,
   recentMessages: 10,
@@ -66,7 +67,7 @@ export function resolveOptions(options: PromptSuggestOptions | undefined): Resol
       Array.isArray(input.acceptKeys) && input.acceptKeys.length > 0
         ? input.acceptKeys
         : [...DEFAULTS.acceptKeys],
-    backOnEmptyLeft: input.backOnEmptyLeft ?? false,
+    backOnEmptyLeft: input.backOnEmptyLeft ?? DEFAULTS.backOnEmptyLeft,
     internalSessionMarkerDir:
       typeof input.internalSessionMarkerDir === "string" && input.internalSessionMarkerDir.trim()
         ? input.internalSessionMarkerDir.trim()

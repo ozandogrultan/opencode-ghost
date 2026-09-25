@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Avoid creating `.bak` backup file on install
+- Enable returning to the home screen with Left arrow on an empty prompt by default and prevent key event leakage
 
 ## [0.2.7] - 2026-09-25
 

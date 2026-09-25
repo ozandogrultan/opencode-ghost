@@ -6,6 +6,7 @@ describe("resolveOptions", () => {
     const opts = resolveOptions(undefined)
     expect(opts.enabled).toBe(true)
     expect(opts.acceptKeys).toEqual(["tab", "right"])
+    expect(opts.backOnEmptyLeft).toBe(true)
     expect(opts.maxChars).toBe(120)
     expect(opts.idleDelayMs).toBe(500)
     expect(opts.recentMessages).toBe(10)
@@ -18,6 +19,7 @@ describe("resolveOptions", () => {
       enabled: false,
       model: "openai/gpt-5",
       acceptKeys: ["tab"],
+      backOnEmptyLeft: false,
       maxChars: 40,
       idleDelayMs: 0,
       recentMessages: 3,
@@ -26,6 +28,7 @@ describe("resolveOptions", () => {
     expect(opts.enabled).toBe(false)
     expect(opts.model).toBe("openai/gpt-5")
     expect(opts.acceptKeys).toEqual(["tab"])
+    expect(opts.backOnEmptyLeft).toBe(false)
     expect(opts.maxChars).toBe(40)
     expect(opts.idleDelayMs).toBe(0)
     expect(opts.recentMessages).toBe(3)

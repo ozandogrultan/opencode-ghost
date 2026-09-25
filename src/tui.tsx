@@ -793,13 +793,13 @@ const tui: TuiPlugin = async (api, rawOptions) => {
       {
         key: "left",
         desc: "Return to the home screen when the prompt is empty",
-        preventDefault: false,
-        fallthrough: true,
         cmd: () => {
           if (!opts.backOnEmptyLeft) return false
           if (api.route.current.name !== "session") return false
-          if (!promptRef) return false
-          if (currentInput().trim().length > 0) return false
+          const input = currentInput()
+          if (input.trim().length > 0) return false
+          showGhost(undefined)
+          setInBox(undefined)
           api.route.navigate("home")
           return true
         },
