@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { clip, isEcho, normalize, parseModel } from "../src/text"
+import { clip, isEcho, normalize, parseModel, wrapCount } from "../src/text"
 
 describe("parseModel", () => {
   test("parses provider/model", () => {
@@ -57,6 +57,28 @@ describe("normalize", () => {
     const out = normalize("a".repeat(200), 10)
     expect(out?.length).toBe(10)
     expect(out?.endsWith("…")).toBe(true)
+  })
+})
+
+describe("wrapCount", () => {
+  test("counts a single line when everything fits", () => {
+    expect(wrapCount("hello world", 20)).toBe(1)
+    expect(wrapCount("", 20)).toBe(1)
+  })
+
+  test("wraps at word boundaries", () => {
+    expect(wrapCount("a b c", 3)).toBe(2)
+    expect(wrapCount("one two three four", 8)).toBe(3)
+  })
+
+  test("breaks words longer than the width", () => {
+    expect(wrapCount("aaaa", 2)).toBe(2)
+    expect(wrapCount("aaaaa", 2)).toBe(3)
+  })
+
+  test("guards against non-positive widths", () => {
+    expect(wrapCount("anything", 0)).toBe(1)
+    expect(wrapCount("anything", -5)).toBe(1)
   })
 })
 

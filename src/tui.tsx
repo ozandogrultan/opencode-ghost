@@ -4,7 +4,7 @@ import { createSignal } from "solid-js"
 import * as fs from "node:fs"
 import * as path from "node:path"
 import { resolveOptions, type PromptSuggestOptions } from "./options"
-import { clip, isEcho, normalize, parseModel } from "./text"
+import { clip, isEcho, normalize, parseModel, wrapCount } from "./text"
 import { BUILTIN_COMMANDS } from "./builtins"
 import { completeCommand, type CommandPool } from "./completion"
 
@@ -17,6 +17,10 @@ const ORPHAN_SWEEP_INTERVAL_MS = 30_000
 const ORPHAN_MIN_AGE_MS = 15_000
 const MAX_MESSAGE_CHARS = 800
 const MAX_TRANSCRIPT_CHARS = 6000
+// The prompt editor grows to fit a wrapped next-message suggestion only up to
+// this many rows; longer text is clipped. The host caps its editor at >= 6 rows
+// by default, so 5 stays inside that ceiling.
+const MAX_GHOST_LINES = 5
 const ENABLED_KEY = "ghost.enabled"
 const MODEL_KEY = "ghost.model"
 
@@ -343,7 +347,17 @@ const tui: TuiPlugin = async (api, rawOptions) => {
   // (host layout change) completion falls back to the hint row.
   type GhostColor = typeof api.theme.current.textMuted
   const [inBox, setInBox] = createSignal<
-    { sessionID: string; x: number; y: number; text: string; width: number; color: GhostColor; opacity: number } | undefined
+    {
+      sessionID: string
+      x: number
+      y: number
+      text: string
+      width: number
+      height: number
+      wrap: boolean
+      color: GhostColor
+      opacity: number
+    } | undefined
   >()
   let slotNode: { screenX?: number; screenY?: number; width?: number } | undefined
   // Locate the prompt's editor renderable inside the layout tree.
@@ -361,6 +375,8 @@ const tui: TuiPlugin = async (api, rawOptions) => {
             visualCursor?: { visualRow?: number; visualCol?: number }
             screenX?: number
             screenY?: number
+            width?: number
+            minHeight?: number
             getChildren?: () => unknown[]
           }
         | undefined
@@ -372,18 +388,36 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     return undefined
   }
 
+  // A wrapped next-message suggestion is shown by growing the host editor's
+  // min height to the number of rows it needs, so the prompt box grows instead
+  // of clipping the text. The host sets minHeight once at creation (not
+  // reactively), so the value we set survives until we reset it.
+  let heightManaged: { minHeight?: number } | undefined
+  const resetEditorHeight = () => {
+    if (!heightManaged) return
+    try {
+      heightManaged.minHeight = 1
+    } catch {
+      // The editor may have been recreated or destroyed; best effort.
+    }
+    heightManaged = undefined
+  }
+
   const placeInBoxGhost = (
     sessionID: string,
     text: string,
     color: GhostColor,
     opacity: number,
+    wrap: boolean,
   ): boolean => {
+    resetEditorHeight()
     setInBox(undefined)
     const textarea = findTextarea() as
       | {
           screenX?: unknown
           screenY?: unknown
           width?: unknown
+          minHeight?: number
           visualCursor?: { visualRow?: number; visualCol?: number }
         }
       | undefined
@@ -417,7 +451,18 @@ const tui: TuiPlugin = async (api, rawOptions) => {
           ? slotNode.width - x
           : undefined
     if (width === undefined || width <= 0) return false
-    setInBox({ sessionID, x, y, text, width, color, opacity })
+    let height = 1
+    if (wrap) {
+      height = Math.max(1, Math.min(MAX_GHOST_LINES, wrapCount(text, width)))
+      try {
+        textarea.minHeight = height
+        heightManaged = textarea
+      } catch {
+        // If the host editor cannot be resized, fall back to a one-row clip.
+        height = 1
+      }
+    }
+    setInBox({ sessionID, x, y, text, width, height, wrap: wrap && height > 1, color, opacity })
     return true
   }
 
@@ -431,6 +476,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
         setCompletion(undefined)
         setInBox(undefined)
       }
+      resetEditorHeight()
       return
     }
     const input = promptRef?.current.input ?? ""
@@ -446,6 +492,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
         : undefined
     let display = ""
     let insert = ""
+    let wrap = false
     // Slash-command completions are tinted like commands and kept at full
     // strength; every other ghost (history, next-message suggestion) is dimmed
     // so it cannot be mistaken for typed text.
@@ -457,17 +504,25 @@ const tui: TuiPlugin = async (api, rawOptions) => {
       display = args && args.length > 0 ? `[${args.join(" | ")}]` : (found.ghost ?? "")
     } else if (startsEmpty) {
       // Empty prompt: the model's next-message suggestion is ghosted in the
-      // box as well (the accept layer's `accept()` handles Tab for it).
+      // box as well (the accept layer's `accept()` handles Tab for it). It is
+      // the only ghost allowed to wrap and grow the prompt box, since it can be
+      // longer than the visible width and there is no typed text to disturb.
       const next = ghost()
-      if (next && next.sessionID === sessionID) display = next.text
+      if (next && next.sessionID === sessionID) {
+        display = next.text
+        wrap = true
+      }
     }
-    // Include the display in the key: a fresh suggestion for an unchanged
-    // (empty) input must still be re-placed.
-    const key = `${sessionID}\u0000${input}\u0000${display}`
+    // Include the display and renderer width in the key: a fresh suggestion for
+    // an unchanged (empty) input must be re-placed, and a resize must re-wrap.
+    const key = `${sessionID}\u0000${input}\u0000${display}\u0000${api.renderer.width}`
     if (completionKey === key) return
     completionKey = key
-    const drawn = display ? placeInBoxGhost(sessionID, display, color, opacity) : false
-    if (!drawn) setInBox(undefined)
+    const drawn = display ? placeInBoxGhost(sessionID, display, color, opacity, wrap) : false
+    if (!drawn) {
+      setInBox(undefined)
+      resetEditorHeight()
+    }
     setCompletion(
       found
         ? {
@@ -684,6 +739,9 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     if (currentInput().trim()) return false
     promptRef.set({ input: current.text, parts: [] })
     promptRef.focus()
+    completionKey = ""
+    setInBox(undefined)
+    resetEditorHeight()
     showGhost(undefined)
     return true
   }
@@ -760,12 +818,16 @@ const tui: TuiPlugin = async (api, rawOptions) => {
                 left={overlay()!.x}
                 top={overlay()!.y}
                 width={overlay()!.width}
-                height={1}
+                height={overlay()!.height}
                 overflow="hidden"
                 opacity={overlay()!.opacity}
                 zIndex={100}
               >
-                <text fg={overlay()!.color} wrapMode="none" truncate>
+                <text
+                  fg={overlay()!.color}
+                  wrapMode={overlay()!.wrap ? "word" : "none"}
+                  truncate={!overlay()!.wrap}
+                >
                   {overlay()!.text}
                 </text>
               </box>
@@ -809,6 +871,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     clearInterval(sweepTimer)
     clearInterval(pollTimer)
     setInBox(undefined)
+    resetEditorHeight()
     offIdle()
     offStatus()
     backLayer()
