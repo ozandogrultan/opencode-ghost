@@ -597,6 +597,28 @@ const tui: TuiPlugin = async (api, rawOptions) => {
       .join(" ")
   }
 
+  // HIDDEN_TOOLS only names built-in tools; anything else (MCP servers,
+  // other dynamically registered tools) stays enabled unless listed here too.
+  // Ask the server for the full set so a hidden session never gets to call
+  // unrelated tools (e.g. session search) and answer like a real agent
+  // instead of writing a suggested next message.
+  const fetchDisabledTools = async (
+    directory: string | undefined,
+  ): Promise<Record<string, boolean>> => {
+    const disabled: Record<string, boolean> = { ...HIDDEN_TOOLS }
+    try {
+      const result = await api.client.tool.ids(directory ? { directory } : undefined)
+      const ids = Array.isArray(result?.data) ? result.data : []
+      for (const id of ids) {
+        if (typeof id === "string" && id) disabled[id] = false
+      }
+    } catch {
+      // Best effort: the static list above still covers every built-in tool
+      // if the dynamic lookup fails.
+    }
+    return disabled
+  }
+
   const generate = async (sessionID: string): Promise<string | undefined> => {
     const transcript = buildTranscript(sessionID)
     if (!transcript) return undefined
@@ -612,11 +634,14 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     // behind whenever the default differed.
     const parentDirectory = resolveParentDirectory(sessionID)
     try {
-      const created = await api.client.session.create({
-        title: HIDDEN_TITLE,
-        metadata: { ...GHOST_METADATA },
-        ...(parentDirectory ? { directory: parentDirectory } : {}),
-      })
+      const [created, disabledTools] = await Promise.all([
+        api.client.session.create({
+          title: HIDDEN_TITLE,
+          metadata: { ...GHOST_METADATA },
+          ...(parentDirectory ? { directory: parentDirectory } : {}),
+        }),
+        fetchDisabledTools(parentDirectory),
+      ])
       tempID = created.data?.id
       if (!tempID) return undefined
       createdDirectory =
@@ -631,7 +656,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
         sessionID: tempID,
         ...(createdDirectory ? { directory: createdDirectory } : {}),
         system: opts.system,
-        tools: { ...HIDDEN_TOOLS },
+        tools: disabledTools,
         model: resolveModel(),
         parts: [{ type: "text", text: transcript }],
       })

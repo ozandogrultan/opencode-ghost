@@ -246,3 +246,60 @@ test("failed generation deletes the hidden session with the parent directory", a
     dispose?.()
   }
 })
+
+test("hidden session disables every tool the server reports, not just the static built-ins", async () => {
+  // Regression guard: the hidden session must never fall back to being a real
+  // agent (e.g. calling an MCP tool and explaining its findings) just because
+  // that tool wasn't in the static HIDDEN_TOOLS list.
+  const prompted: Array<{ tools?: Record<string, boolean> }> = []
+  const deleted: unknown[] = []
+  const { api, handlers } = baseApi({
+    route: { current: { name: "session", params: { sessionID: "ses_visible" } } },
+    state: {
+      config: {},
+      path: { directory: "/proj" },
+      session: {
+        get: () => ({ directory: "/proj" }),
+        messages: () => [{ role: "user", id: "m1" }],
+      },
+      part: () => [{ type: "text", text: "hello there" }],
+    },
+    client: {
+      tool: {
+        ids: async () => ({ data: ["bash", "sesh_list", "custom_mcp_tool"] }),
+      },
+      session: {
+        create: async () => ({ data: { id: "ses_hidden", directory: "/proj" } }),
+        prompt: async (request: { tools?: Record<string, boolean> }) => {
+          prompted.push(request)
+          return { data: { parts: [{ type: "text", text: "go ahead" }] } }
+        },
+        delete: async (request: unknown) => {
+          deleted.push(request)
+          return { data: true }
+        },
+        list: async () => ({ data: [] }),
+      },
+    },
+  })
+
+  let dispose!: () => void
+  ;(api.lifecycle as { onDispose: (cb: () => void) => void }).onDispose = (cb) => {
+    dispose = cb
+  }
+
+  try {
+    await ghost.tui(api as any, { idleDelayMs: 0 }, {} as any)
+    for (const handler of handlers["session.idle"] ?? []) handler({ properties: { sessionID: "ses_visible" } })
+    await waitFor(() => deleted.length >= 1)
+    expect(prompted).toHaveLength(1)
+    const tools = prompted[0].tools ?? {}
+    // Dynamically discovered (not in the static list):
+    expect(tools.sesh_list).toBe(false)
+    expect(tools.custom_mcp_tool).toBe(false)
+    // Still covered by the static list too:
+    expect(tools.bash).toBe(false)
+  } finally {
+    dispose?.()
+  }
+})
