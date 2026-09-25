@@ -19,7 +19,6 @@ const MAX_MESSAGE_CHARS = 800
 const MAX_TRANSCRIPT_CHARS = 6000
 const ENABLED_KEY = "ghost.enabled"
 const MODEL_KEY = "ghost.model"
-const GHOST_DEBUG = Boolean(process.env.GHOST_DEBUG)
 
 const HIDDEN_TOOLS = {
   bash: false,
@@ -441,17 +440,6 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     completionKey = key
     const drawn = display ? placeInBoxGhost(sessionID, display) : false
     if (!drawn) setInBox(undefined)
-    if (GHOST_DEBUG && (display || input.startsWith("/"))) {
-      const overlay = inBox()
-      try {
-        api.ui.toast({
-          title: "ghost-debug",
-          message: `display=${display.slice(0, 20) || "∅"} drawn=${drawn} slot=${slotNode ? `${slotNode.screenX}/${slotNode.screenY}` : "n"} box=${overlay ? `${overlay.x}/${overlay.y}` : "∅"}`,
-        })
-      } catch {
-        // ignore
-      }
-    }
     setCompletion(
       found
         ? {

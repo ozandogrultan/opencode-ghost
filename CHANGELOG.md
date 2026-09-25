@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- The temporary `GHOST_DEBUG` diagnostic toasts introduced while localizing
+  the in-box ghost overlay.
+
 ## [0.2.2] - 2026-09-25
 
 ### Changed
@@ -17,8 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Typing ghosts are positioned from absolute screen coordinates (the prompt
   editor's `screenX/screenY` plus the caret's visual column/row) instead of a
   relative slot offset, and clear reliably when the input no longer matches.
-- `GHOST_DEBUG=1` makes the plugin emit diagnostic toasts about ghost
-  placement (temporary, for localization feedback).
 ## [0.2.1] - 2026-09-24
 
 ### Changed
