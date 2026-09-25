@@ -36,10 +36,6 @@ if ! command -v node >/dev/null 2>&1; then
   exit 0
 fi
 
-if [ -f "$tui" ]; then
-  cp "$tui" "$tui.bak.$(date +%Y%m%d%H%M%S)"
-fi
-
 node -e '
   const fs = require("fs")
   const [file, entry] = process.argv.slice(1)
