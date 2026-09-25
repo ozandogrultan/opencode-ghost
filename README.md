@@ -28,11 +28,10 @@ dimmed ghost text you accept with <kbd>Tab</kbd> (or <kbd>→</kbd>).
   message you already sent in the same session, the rest of it is ghosted in
   the box as well; Tab pulls the full line back. Also purely local.
 - **Distinct ghost styling.** Slash-command ghosts use the theme accent color;
-  all other ghosts (history completion, next-message suggestion) are dimmed so
-  they cannot be mistaken for typed text. A next-message suggestion that is
-  wider than the prompt wraps onto extra rows and grows the prompt box (up to
-  five rows) so it stays fully readable; other ghosts are clipped to the box and
-  never spill past it.
+  every ghost is dimmed so it cannot be mistaken for typed text. A
+  next-message suggestion that is wider than the prompt wraps onto extra rows
+  and grows the prompt box (up to five rows) so it stays fully readable; other
+  ghosts are clipped to the box and never spill past it.
 - **`/suggest` toggles it.** State is stored in the plugin KV.
 
 ## Requirements

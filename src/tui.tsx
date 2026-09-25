@@ -21,6 +21,9 @@ const MAX_TRANSCRIPT_CHARS = 6000
 // this many rows; longer text is clipped. The host caps its editor at >= 6 rows
 // by default, so 5 stays inside that ceiling.
 const MAX_GHOST_LINES = 5
+// Every ghost is drawn at this opacity so it always reads as a suggestion, not
+// typed text. Slash-command ghosts keep the accent hue but are dimmed too.
+const GHOST_OPACITY = 0.6
 const ENABLED_KEY = "ghost.enabled"
 const MODEL_KEY = "ghost.model"
 
@@ -493,11 +496,10 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     let display = ""
     let insert = ""
     let wrap = false
-    // Slash-command completions are tinted like commands and kept at full
-    // strength; every other ghost (history, next-message suggestion) is dimmed
+    // Slash-command completions are tinted like commands; every ghost is dimmed
     // so it cannot be mistaken for typed text.
     const color = isSlash ? api.theme.current.accent : api.theme.current.textMuted
-    const opacity = isSlash ? 1 : 0.6
+    const opacity = GHOST_OPACITY
     if (found) {
       const args = "args" in found ? found.args : undefined
       insert = found.insert ?? ""
