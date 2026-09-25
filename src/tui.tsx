@@ -19,6 +19,7 @@ const MAX_MESSAGE_CHARS = 800
 const MAX_TRANSCRIPT_CHARS = 6000
 const ENABLED_KEY = "ghost.enabled"
 const MODEL_KEY = "ghost.model"
+const GHOST_DEBUG = Boolean(process.env.GHOST_DEBUG)
 
 const HIDDEN_TOOLS = {
   bash: false,
@@ -336,29 +337,15 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     return undefined
   }
 
-  // In-box ghost: the suggestion is drawn directly into the prompt's text area
-  // right after the caret, refreshed each frame. When the text area cannot be
-  // located (host layout change), completion falls back to the hint row.
-  let inBoxGhost: { x: number; y: number; text: string } | undefined
-  const drawGhost = (buffer: unknown) => {
-    const target = inBoxGhost
-    if (!target) return
-    try {
-      const drawn = buffer as { drawText?: (text: string, x: number, y: number, fg: unknown) => void }
-      drawn.drawText?.(target.text, target.x, target.y, api.theme.current.textMuted)
-    } catch {
-      // Rendering must never fail because of the overlay.
-    }
-  }
-  const postProcesses = (api.renderer as unknown as { postProcessFns?: unknown[] } | undefined)
-    ?.postProcessFns
-  if (Array.isArray(postProcesses)) postProcesses.push(drawGhost)
-  const removeOverlay = () => {
-    if (!postProcesses) return
-    const index = postProcesses.indexOf(drawGhost)
-    if (index >= 0) postProcesses.splice(index, 1)
-  }
-
+  // In-box ghost: an absolutely positioned text node rendered in the slot's
+  // own container, at the caret of the prompt's editor renderable (found by
+  // walking the layout tree). Uses the normal render pipeline, so it is visible
+  // wherever the prompt is. When the editor or container cannot be located
+  // (host layout change) completion falls back to the hint row.
+  const [inBox, setInBox] = createSignal<
+    { sessionID: string; x: number; y: number; text: string } | undefined
+  >()
+  let slotNode: { screenX?: number; screenY?: number } | undefined
   // Locate the prompt's editor renderable inside the layout tree.
   const findTextarea = (): unknown => {
     const root = (api.renderer as unknown as { root?: unknown }).root as
@@ -385,8 +372,8 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     return undefined
   }
 
-  const placeInBoxGhost = (text: string): boolean => {
-    inBoxGhost = undefined
+  const placeInBoxGhost = (sessionID: string, text: string): boolean => {
+    setInBox(undefined)
     const textarea = findTextarea() as
       | { screenX?: unknown; screenY?: unknown; visualCursor?: { visualRow?: number; visualCol?: number } }
       | undefined
@@ -398,22 +385,24 @@ const tui: TuiPlugin = async (api, rawOptions) => {
       return false
     }
     const cursor = textarea.visualCursor ?? {}
-    inBoxGhost = {
-      x: textarea.screenX + (typeof cursor.visualCol === "number" ? cursor.visualCol : 0),
-      y: textarea.screenY + (typeof cursor.visualRow === "number" ? cursor.visualRow : 0),
-      text,
-    }
+    // The overlay box is positioned against the root (absolute), so use the
+    // editor's screen coordinates plus the caret's visual column/row.
+    const x = textarea.screenX + (typeof cursor.visualCol === "number" ? cursor.visualCol : 0)
+    const y = textarea.screenY + (typeof cursor.visualRow === "number" ? cursor.visualRow : 0)
+    setInBox({ sessionID, x, y, text })
     return true
   }
 
   const POLL_INTERVAL_MS = 100
   const POOL_TTL_MS = 60_000
   let completionKey = ""
-  const pollTimer = setInterval(() => {
+    const pollTimer = setInterval(() => {
     const sessionID = currentSessionID()
     if (!sessionID) {
-      inBoxGhost = undefined
-      if (completion()) setCompletion(undefined)
+      if (completion() || inBox()) {
+        setCompletion(undefined)
+        setInBox(undefined)
+      }
       return
     }
     const input = promptRef?.current.input ?? ""
@@ -435,8 +424,19 @@ const tui: TuiPlugin = async (api, rawOptions) => {
       const hint = "hint" in found ? found.hint : undefined
       display = args && args.length > 0 ? `[${args.join(" | ")}]` : (found.ghost ?? hint ?? "")
     }
-    inBoxGhost = undefined
-    const drawn = display ? placeInBoxGhost(display) : false
+    const drawn = display ? placeInBoxGhost(sessionID, display) : false
+    if (!display) setInBox(undefined)
+    if (GHOST_DEBUG && (display || input.startsWith("/"))) {
+      const overlay = inBox()
+      try {
+        api.ui.toast({
+          title: "ghost-debug",
+          message: `display=${display.slice(0, 20) || "∅"} drawn=${drawn} slot=${slotNode ? `${slotNode.screenX}/${slotNode.screenY}` : "n"} ta=${findTextarea() ? "y" : "n"} box=${overlay ? `${overlay.x}/${overlay.y}` : "∅"}`,
+        })
+      } catch {
+        // ignore
+      }
+    }
     setCompletion(
       found
         ? {
@@ -703,35 +703,52 @@ const tui: TuiPlugin = async (api, rawOptions) => {
         const completionText = () => {
           const current = completion()
           if (!current || current.sessionID !== props.session_id) return ""
-          // In in-box mode `drawGhost` handles the text; the hint row then stays free.
+          // In in-box mode the overlay text element handles the text; the hint
+          // row then stays free.
           if (current.drawn) return ""
           return current.display
         }
+        const overlay = () => {
+          const current = inBox()
+          return current && current.sessionID === props.session_id ? current : undefined
+        }
         return (
-          <api.ui.Prompt
-            sessionID={props.session_id}
-            visible={props.visible}
-            disabled={props.disabled}
-            showPlaceholder={false}
-            hint={
-              suggestion() || completionText() ? (
-                <box marginLeft={1}>
-                  <text fg={api.theme.current.textMuted}>
-                    {completionText() || suggestion()}
-                  </text>
-                </box>
-              ) : undefined
-            }
-            right={<api.ui.Slot name="session_prompt_right" session_id={props.session_id} />}
-            onSubmit={() => {
-              showGhost(undefined)
-              props.on_submit?.()
+          <box
+            position="relative"
+            ref={(ref: { screenX?: number; screenY?: number }) => {
+              slotNode = ref
             }}
-            ref={(ref) => {
-              promptRef = ref
-              props.ref?.(ref)
-            }}
-          />
+          >
+            <api.ui.Prompt
+              sessionID={props.session_id}
+              visible={props.visible}
+              disabled={props.disabled}
+              showPlaceholder={false}
+              hint={
+                suggestion() || completionText() ? (
+                  <box marginLeft={1}>
+                    <text fg={api.theme.current.textMuted}>
+                      {completionText() || suggestion()}
+                    </text>
+                  </box>
+                ) : undefined
+              }
+              right={<api.ui.Slot name="session_prompt_right" session_id={props.session_id} />}
+              onSubmit={() => {
+                showGhost(undefined)
+                props.on_submit?.()
+              }}
+              ref={(ref) => {
+                promptRef = ref
+                props.ref?.(ref)
+              }}
+            />
+            {overlay() ? (
+              <box position="absolute" left={overlay()!.x} top={overlay()!.y}>
+                <text fg={api.theme.current.textMuted}>{overlay()!.text}</text>
+              </box>
+            ) : undefined}
+          </box>
         )
       },
     },
@@ -769,7 +786,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     if (timer) clearTimeout(timer)
     clearInterval(sweepTimer)
     clearInterval(pollTimer)
-    removeOverlay()
+    setInBox(undefined)
     offIdle()
     offStatus()
     backLayer()
