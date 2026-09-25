@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-09-25
+
 ### Fixed
 
 - Long next-message suggestions now wrap onto extra rows and grow the prompt
@@ -21,7 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ghost styling: slash-command ghosts use the theme accent color, and every
   other ghost is dimmed and clipped to the prompt box so it cannot be mistaken
   for typed text.
-
 ## [0.2.3] - 2026-09-25
 
 ### Removed
@@ -97,7 +98,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Options for `model`, `acceptKeys`, `maxChars`, `idleDelayMs`,
   `recentMessages` and `system`.
 
-[Unreleased]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.4...HEAD
+[0.2.4]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.0...v0.2.1
