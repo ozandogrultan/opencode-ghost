@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Direct stateless generation support for OpenAI-compatible and Anthropic endpoints, eliminating background OpenCode session creation, zombie sessions, and cmux workspace interference.
+
 ### Fixed
 
 - Avoid creating `.bak` backup file on install
