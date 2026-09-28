@@ -1,6 +1,8 @@
 export type PromptSuggestOptions = {
   enabled?: boolean
   model?: string
+  endpoint?: string
+  apiKey?: string
   acceptKeys?: string[]
   backOnEmptyLeft?: boolean
   internalSessionMarkerDir?: string
@@ -14,6 +16,8 @@ export type PromptSuggestOptions = {
 export type ResolvedOptions = {
   enabled: boolean
   model: string | undefined
+  endpoint: string | undefined
+  apiKey: string | undefined
   acceptKeys: string[]
   backOnEmptyLeft: boolean
   internalSessionMarkerDir: string | undefined
@@ -63,6 +67,10 @@ export function resolveOptions(options: PromptSuggestOptions | undefined): Resol
   return {
     enabled: input.enabled ?? DEFAULTS.enabled,
     model: typeof input.model === "string" && input.model.trim() ? input.model.trim() : undefined,
+    endpoint:
+      typeof input.endpoint === "string" && input.endpoint.trim() ? input.endpoint.trim() : undefined,
+    apiKey:
+      typeof input.apiKey === "string" && input.apiKey.trim() ? input.apiKey.trim() : undefined,
     acceptKeys:
       Array.isArray(input.acceptKeys) && input.acceptKeys.length > 0
         ? input.acceptKeys

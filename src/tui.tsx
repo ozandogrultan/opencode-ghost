@@ -7,6 +7,7 @@ import { resolveOptions, type PromptSuggestOptions } from "./options"
 import { clip, isEcho, normalize, parseModel, wrapCount } from "./text"
 import { BUILTIN_COMMANDS } from "./builtins"
 import { completeCommand, type CommandPool } from "./completion"
+import { fetchStatelessSuggestion } from "./stateless"
 
 const HIDDEN_TITLE = "ghost-hidden"
 // Survives the server's automatic title generation, which renames the hidden
@@ -623,6 +624,22 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     const transcript = buildTranscript(sessionID)
     if (!transcript) return undefined
 
+    const model = resolveModel()
+
+    const stateless = await fetchStatelessSuggestion(
+      transcript,
+      opts,
+      model,
+      api.state.config,
+    )
+    if (stateless) {
+      const suggestion = normalize(stateless, opts.maxChars)
+      if (!suggestion) return undefined
+      const previous = lastUserText(sessionID)
+      if (previous && isEcho(suggestion, previous)) return undefined
+      return suggestion
+    }
+
     const markerDir = opts.internalSessionMarkerDir
     const pending = markerDir ? path.join(markerDir, "pending") : undefined
     if (markerDir && pending) markPending(markerDir, pending)
@@ -657,7 +674,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
         ...(createdDirectory ? { directory: createdDirectory } : {}),
         system: opts.system,
         tools: disabledTools,
-        model: resolveModel(),
+        model,
         parts: [{ type: "text", text: transcript }],
       })
       const parts = result.data?.parts ?? []
