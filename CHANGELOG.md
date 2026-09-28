@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-28
+
 ### Added
 
 - Direct stateless generation support for OpenAI-compatible and Anthropic endpoints, eliminating background OpenCode session creation, zombie sessions, and cmux workspace interference.
@@ -15,7 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Avoid creating `.bak` backup file on install
 - Enable returning to the home screen with Left arrow on an empty prompt by default and prevent key event leakage
-
 ## [0.2.7] - 2026-09-25
 
 ### Fixed
@@ -126,7 +127,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Options for `model`, `acceptKeys`, `maxChars`, `idleDelayMs`,
   `recentMessages` and `system`.
 
-[Unreleased]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.7...HEAD
+[Unreleased]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.7...v0.3.0
 [0.2.7]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.6...v0.2.7
 [0.2.6]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.4...v0.2.5
