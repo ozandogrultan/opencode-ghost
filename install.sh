@@ -38,15 +38,20 @@ fi
 
 node -e '
   const fs = require("fs")
-  const [file, entry] = process.argv.slice(1)
+  const path = require("path")
+  const [file, entry, configDir] = process.argv.slice(1)
   let config = {}
   try { config = JSON.parse(fs.readFileSync(file, "utf8")) } catch {}
   const list = Array.isArray(config.plugin) ? config.plugin : []
-  const has = list.some((item) => (Array.isArray(item) ? item[0] : item) === entry)
-  if (!has) list.push(entry)
+  const target = path.resolve(entry)
+  const isEntry = (item) => {
+    const spec = Array.isArray(item) ? item[0] : item
+    return typeof spec === "string" && path.resolve(configDir, spec) === target
+  }
+  if (!list.some(isEntry)) list.push(entry)
   config.plugin = list
   fs.writeFileSync(file, JSON.stringify(config, null, 2) + "\n")
-' "$tui" "$entry"
+' "$tui" "$entry" "$cfg"
 
 echo "installed -> $entry"
 echo "registered in $tui"
