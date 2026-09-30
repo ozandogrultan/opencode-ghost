@@ -7,10 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-30
+
 ### Fixed
 
 - Support OpenCode v2 TUI plugin module contract (`default` export object with non-empty `id` and `setup` function) while preserving v1 `tui` export.
-
 ## [0.5.0] - 2026-09-30
 
 ### Added
@@ -150,7 +151,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Options for `model`, `acceptKeys`, `maxChars`, `idleDelayMs`,
   `recentMessages` and `system`.
 
-[Unreleased]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.3.0...v0.3.1
