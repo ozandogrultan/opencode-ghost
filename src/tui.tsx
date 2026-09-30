@@ -936,4 +936,15 @@ const tui: TuiPlugin = async (api, rawOptions) => {
 
 export const id = "ghost"
 export { tui }
-export default Object.assign(tui, { id: "ghost", tui })
+
+const plugin = {
+  id: "ghost",
+  tui,
+  setup(ctx: any) {
+    if (ctx && typeof ctx.slots?.register === "function") {
+      return tui(ctx, ctx.options, ctx.meta)
+    }
+  },
+}
+
+export default plugin

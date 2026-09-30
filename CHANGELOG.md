@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Support OpenCode v2 TUI plugin module contract (`default` export object with non-empty `id` and `setup` function) while preserving v1 `tui` export.
+
 ## [0.5.0] - 2026-09-30
 
 ### Added
