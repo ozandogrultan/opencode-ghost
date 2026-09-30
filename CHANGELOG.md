@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Support `--all` and explicit directory targets in `install.sh` to install across both global OpenCode v1 (`~/.config/opencode`) and sandbox/v2 configurations.
+
+### Fixed
+
+- Support OpenCode v1 and v2 plugin loading conventions (named and default `tui`/`id` exports, snake_case and camelCase slot props, object model specs).
+
 ## [0.4.0] - 2026-09-30
 
 ### Added

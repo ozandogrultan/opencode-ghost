@@ -13,6 +13,21 @@ describe("parseModel", () => {
     expect(parseModel("a/b/c")).toEqual({ providerID: "a", modelID: "b/c" })
   })
 
+  test("parses object model specs", () => {
+    expect(parseModel({ providerID: "groq", modelID: "llama-3.1" })).toEqual({
+      providerID: "groq",
+      modelID: "llama-3.1",
+    })
+    expect(parseModel({ provider: "deepseek", model: "deepseek-chat" })).toEqual({
+      providerID: "deepseek",
+      modelID: "deepseek-chat",
+    })
+    expect(parseModel({ provider: "openai", id: "gpt-4o-mini" })).toEqual({
+      providerID: "openai",
+      modelID: "gpt-4o-mini",
+    })
+  })
+
   test("rejects malformed specs", () => {
     expect(parseModel(undefined)).toBeUndefined()
     expect(parseModel("")).toBeUndefined()

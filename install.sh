@@ -21,39 +21,78 @@ if [ -z "$cfg" ]; then
   cfg="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
 fi
 
-dest="$cfg/plugins/opencode-ghost"
-mkdir -p "$dest"
-cp "$src"/*.tsx "$src"/*.ts "$dest"/
+targets=()
+install_all=false
 
-entry="$dest/tui.tsx"
-tui="$cfg/tui.json"
+for arg in "$@"; do
+  if [ "$arg" = "--all" ]; then
+    install_all=true
+  else
+    targets+=("$arg")
+  fi
+done
 
-if ! command -v node >/dev/null 2>&1; then
-  echo "installed plugin files -> $dest"
-  echo
-  echo "Add this to $tui yourself (node was not found):"
-  echo "  \"plugin\": [\"$entry\"]"
-  exit 0
+if [ "$install_all" = true ]; then
+  targets+=("$cfg")
+  std_cfg="${HOME:-$HOME}/.config/opencode"
+  if [ -d "$std_cfg" ] || [ -f "$std_cfg/tui.json" ] || [ -f "$std_cfg/opencode.json" ]; then
+    targets+=("$std_cfg")
+  fi
+elif [ ${#targets[@]} -eq 0 ]; then
+  targets+=("$cfg")
 fi
 
-node -e '
-  const fs = require("fs")
-  const path = require("path")
-  const [file, entry, configDir] = process.argv.slice(1)
-  let config = {}
-  try { config = JSON.parse(fs.readFileSync(file, "utf8")) } catch {}
-  const list = Array.isArray(config.plugin) ? config.plugin : []
-  const target = path.resolve(entry)
-  const isEntry = (item) => {
-    const spec = Array.isArray(item) ? item[0] : item
-    return typeof spec === "string" && path.resolve(configDir, spec) === target
-  }
-  if (!list.some(isEntry)) list.push(entry)
-  config.plugin = list
-  fs.writeFileSync(file, JSON.stringify(config, null, 2) + "\n")
-' "$tui" "$entry" "$cfg"
+unique_targets=()
+for t in "${targets[@]}"; do
+  resolved="$(cd "$t" 2>/dev/null && pwd || echo "$t")"
+  already=false
+  for u in ${unique_targets+"${unique_targets[@]}"}; do
+    u_res="$(cd "$u" 2>/dev/null && pwd || echo "$u")"
+    if [ "$resolved" = "$u_res" ]; then
+      already=true
+      break
+    fi
+  done
+  if [ "$already" = false ]; then
+    unique_targets+=("$t")
+  fi
+done
 
-echo "installed -> $entry"
-echo "registered in $tui"
+for target_cfg in ${unique_targets+"${unique_targets[@]}"}; do
+  dest="$target_cfg/plugins/opencode-ghost"
+  mkdir -p "$dest"
+  cp "$src"/*.tsx "$src"/*.ts "$dest"/
+
+  entry="$dest/tui.tsx"
+  tui="$target_cfg/tui.json"
+
+  if ! command -v node >/dev/null 2>&1; then
+    echo "installed plugin files -> $dest"
+    echo
+    echo "Add this to $tui yourself (node was not found):"
+    echo "  \"plugin\": [\"$entry\"]"
+    continue
+  fi
+
+  node -e '
+    const fs = require("fs")
+    const path = require("path")
+    const [file, entry, configDir] = process.argv.slice(1)
+    let config = {}
+    try { config = JSON.parse(fs.readFileSync(file, "utf8")) } catch {}
+    const list = Array.isArray(config.plugin) ? config.plugin : []
+    const target = path.resolve(entry)
+    const isEntry = (item) => {
+      const spec = Array.isArray(item) ? item[0] : item
+      return typeof spec === "string" && path.resolve(configDir, spec) === target
+    }
+    if (!list.some(isEntry)) list.push(entry)
+    config.plugin = list
+    fs.writeFileSync(file, JSON.stringify(config, null, 2) + "\n")
+  ' "$tui" "$entry" "$target_cfg"
+
+  echo "installed -> $entry"
+  echo "registered in $tui"
+done
 echo
 echo "Restart opencode to load it."

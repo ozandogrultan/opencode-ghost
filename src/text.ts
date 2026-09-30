@@ -1,7 +1,27 @@
 export function parseModel(
-  spec: string | undefined,
+  spec: unknown,
 ): { providerID: string; modelID: string } | undefined {
   if (!spec) return undefined
+  if (typeof spec === "object" && spec !== null) {
+    const obj = spec as Record<string, unknown>
+    const providerID =
+      typeof obj.providerID === "string"
+        ? obj.providerID
+        : typeof obj.provider === "string"
+          ? obj.provider
+          : undefined
+    const modelID =
+      typeof obj.modelID === "string"
+        ? obj.modelID
+        : typeof obj.id === "string"
+          ? obj.id
+          : typeof obj.model === "string"
+            ? obj.model
+            : undefined
+    if (providerID && modelID) return { providerID, modelID }
+    return undefined
+  }
+  if (typeof spec !== "string") return undefined
   const index = spec.indexOf("/")
   if (index <= 0 || index === spec.length - 1) return undefined
   return { providerID: spec.slice(0, index), modelID: spec.slice(index + 1) }

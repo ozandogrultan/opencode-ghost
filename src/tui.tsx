@@ -562,10 +562,11 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     } catch {
       // ignore
     }
+    const config = api.state.config as Record<string, unknown> | undefined
     return (
       parseModel(opts.model) ??
-      parseModel(api.state.config.small_model) ??
-      parseModel(api.state.config.model)
+      parseModel(config?.small_model ?? config?.smallModel) ??
+      parseModel(config?.model)
     )
   }
 
@@ -829,9 +830,10 @@ const tui: TuiPlugin = async (api, rawOptions) => {
     order: 60,
     slots: {
       session_prompt(_ctx, props) {
+        const sid = props.session_id ?? (props as any).sessionID
         const overlay = () => {
           const current = inBox()
-          return current && current.sessionID === props.session_id ? current : undefined
+          return current && current.sessionID === sid ? current : undefined
         }
         return (
           <box
@@ -841,15 +843,16 @@ const tui: TuiPlugin = async (api, rawOptions) => {
             }}
           >
             <api.ui.Prompt
-              sessionID={props.session_id}
+              sessionID={sid}
               visible={props.visible}
               disabled={props.disabled}
               showPlaceholder={false}
-              right={<api.ui.Slot name="session_prompt_right" session_id={props.session_id} />}
+              right={<api.ui.Slot name="session_prompt_right" session_id={sid} />}
               onSubmit={() => {
                 showGhost(undefined)
                 setInBox(undefined)
                 props.on_submit?.()
+                ;(props as any).onSubmit?.()
               }}
               ref={(ref) => {
                 promptRef = ref
@@ -931,7 +934,6 @@ const tui: TuiPlugin = async (api, rawOptions) => {
   })
 }
 
-export default {
-  id: "ghost",
-  tui,
-}
+export const id = "ghost"
+export { tui }
+export default Object.assign(tui, { id: "ghost", tui })

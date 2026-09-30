@@ -92,4 +92,22 @@ describe("install.sh tui.json registration", () => {
     expect(specs(config)).toHaveLength(1)
     expect(specs(config)[0]).toMatch(/plugins\/opencode-ghost\/tui\.tsx$/)
   })
+
+  test("installs to an explicit target directory", () => {
+    const root = mkdtempSync(join(tmpdir(), "ghost-target-"))
+    roots.push(root)
+    const explicitDir = join(root, "custom-opencode")
+    mkdirSync(explicitDir, { recursive: true })
+
+    const result = Bun.spawnSync(["bash", join(repoDir, "install.sh"), explicitDir], {
+      cwd: repoDir,
+      stdout: "pipe",
+      stderr: "pipe",
+    })
+
+    expect(result.exitCode).toBe(0)
+    const tuiContent = JSON.parse(readFileSync(join(explicitDir, "tui.json"), "utf8"))
+    expect(specs(tuiContent)).toHaveLength(1)
+    expect(specs(tuiContent)[0]).toBe(`${explicitDir}/plugins/opencode-ghost/tui.tsx`)
+  })
 })
