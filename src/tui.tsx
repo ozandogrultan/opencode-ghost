@@ -631,6 +631,7 @@ const tui: TuiPlugin = async (api, rawOptions) => {
       opts,
       model,
       api.state.config,
+      api.state.provider,
     )
     if (stateless) {
       const suggestion = normalize(stateless, opts.maxChars)

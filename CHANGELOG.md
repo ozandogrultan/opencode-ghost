@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Expanded direct stateless suggestion generation: resolve API keys directly from OpenCode provider state (`api.state.provider`), add default endpoints for well-known providers (OpenAI, DeepSeek, Groq, Mistral, OpenRouter, Together, Ollama, Perplexity, xAI, Fireworks, Cerebras), and support keyless local completions without creating temporary OpenCode sessions.
+
 ## [0.3.1] - 2026-09-28
 
 ### Fixed
