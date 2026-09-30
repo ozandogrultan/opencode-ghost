@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-30
+
 ### Added
 
 - Support `--all` and explicit directory targets in `install.sh` to install across both global OpenCode v1 (`~/.config/opencode`) and sandbox/v2 configurations.
@@ -14,7 +16,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Support OpenCode v1 and v2 plugin loading conventions (named and default `tui`/`id` exports, snake_case and camelCase slot props, object model specs).
-
 ## [0.4.0] - 2026-09-30
 
 ### Added
@@ -145,7 +146,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Options for `model`, `acceptKeys`, `maxChars`, `idleDelayMs`,
   `recentMessages` and `system`.
 
-[Unreleased]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.2.7...v0.3.0
