@@ -101,6 +101,7 @@ describe("install.sh tui.json registration", () => {
 
     const result = Bun.spawnSync(["bash", join(repoDir, "install.sh"), explicitDir], {
       cwd: repoDir,
+      env: { ...process.env, PATH: process.env.PATH },
       stdout: "pipe",
       stderr: "pipe",
     })

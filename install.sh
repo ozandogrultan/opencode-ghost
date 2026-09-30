@@ -10,17 +10,6 @@ if [ ! -f "$src/tui.tsx" ]; then
   exit 1
 fi
 
-if ! command -v opencode >/dev/null 2>&1; then
-  echo "error: 'opencode' is not on PATH" >&2
-  exit 1
-fi
-
-# Prefer opencode's own reported config path; fall back to the XDG default.
-cfg="$(opencode debug paths 2>/dev/null | awk '$1 == "config" { print $2; exit }')"
-if [ -z "$cfg" ]; then
-  cfg="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
-fi
-
 targets=()
 install_all=false
 
@@ -32,14 +21,26 @@ for arg in "$@"; do
   fi
 done
 
-if [ "$install_all" = true ]; then
-  targets+=("$cfg")
-  std_cfg="${HOME:-$HOME}/.config/opencode"
-  if [ -d "$std_cfg" ] || [ -f "$std_cfg/tui.json" ] || [ -f "$std_cfg/opencode.json" ]; then
-    targets+=("$std_cfg")
+if [ "$install_all" = true ] || [ ${#targets[@]} -eq 0 ]; then
+  if ! command -v opencode >/dev/null 2>&1; then
+    echo "error: 'opencode' is not on PATH" >&2
+    exit 1
   fi
-elif [ ${#targets[@]} -eq 0 ]; then
-  targets+=("$cfg")
+  # Prefer opencode's own reported config path; fall back to the XDG default.
+  cfg="$(opencode debug paths 2>/dev/null | awk '$1 == "config" { print $2; exit }')"
+  if [ -z "$cfg" ]; then
+    cfg="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
+  fi
+
+  if [ "$install_all" = true ]; then
+    targets+=("$cfg")
+    std_cfg="${HOME:-$HOME}/.config/opencode"
+    if [ -d "$std_cfg" ] || [ -f "$std_cfg/tui.json" ] || [ -f "$std_cfg/opencode.json" ]; then
+      targets+=("$std_cfg")
+    fi
+  else
+    targets+=("$cfg")
+  fi
 fi
 
 unique_targets=()
