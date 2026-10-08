@@ -1,12 +1,12 @@
 /** @jsxImportSource @opentui/solid */
 import { Plugin } from "@opencode/plugin/tui"
 import { TextareaRenderable, InputRenderable, type BoxRenderable, type Renderable } from "@opentui/core"
-import { createEffect, createRoot, createSignal, on, onCleanup } from "solid-js"
+import { createEffect, createMemo, createRoot, createSignal, on, onCleanup } from "solid-js"
 import { composerAction, findComposerEditor, isEmptyComposer, keyName, observeComposerInput } from "./composer"
 import { createLifecycle } from "./lifecycle"
 import { acceptCommand, acceptShortcuts, ghostKeymapLayers } from "./keymap"
 import { parseSuggestCommand, removedOptionKeys, resolveOptions, suggestionModel } from "./options"
-import { createInlinePlaceholder } from "./placeholder"
+import { createInlinePlaceholder, dimPlaceholderColor } from "./placeholder"
 import { generateSuggestion } from "./stateless"
 import { isEcho, normalize, resolveExplicitModel, resolveSmallModel } from "./text"
 import { buildTranscript, lastUserText, suggestionPrompt, type TranscriptMessage } from "./transcript"
@@ -41,6 +41,7 @@ export default Plugin.define({
     const [suggestion, setSuggestion] = createSignal<Suggestion | undefined>()
     const [composerRevision, setComposerRevision] = createSignal(0)
     const inline = createInlinePlaceholder()
+    const ghostColor = createMemo(() => dimPlaceholderColor(context.theme.text.muted))
 
     let disposed = false
     const composers = new Map<string, { marker: BoxRenderable; normal: () => boolean }>()
@@ -118,7 +119,7 @@ export default Plugin.define({
       composerRevision()
       const current = suggestion()
       const editor = current ? getComposer(current.sessionID).editor : undefined
-      inline.sync(editor, current?.text, context.theme.text.muted, !!current && canGenerate(current.sessionID) && isComposerEmpty(current.sessionID))
+      inline.sync(editor, current?.text, ghostColor(), !!current && canGenerate(current.sessionID) && isComposerEmpty(current.sessionID))
     }
 
     const disposeRouteWatcher = createRoot((dispose) => {

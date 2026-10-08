@@ -2,7 +2,7 @@ import { expect, test } from "bun:test"
 import { BoxRenderable, RGBA, StyledText, TextareaRenderable, TextRenderable, dim } from "@opentui/core"
 import { createTestRenderer } from "@opentui/core/testing"
 import { composerAction, isEmptyComposer } from "../src/composer"
-import { createInlinePlaceholder } from "../src/placeholder"
+import { createInlinePlaceholder, dimPlaceholderColor } from "../src/placeholder"
 
 const muted = RGBA.fromHex("#777777")
 
@@ -17,6 +17,37 @@ async function withEditor(run: (editor: TextareaRenderable, setup: Awaited<Retur
     setup.renderer.destroy()
   }
 }
+
+test("ghost color blends toward dark and light composer backgrounds without changing theme or host colors", async () => {
+  await withEditor(async (editor, setup) => {
+    const inline = createInlinePlaceholder()
+    const original = editor.placeholder
+    const originalColor = editor.placeholderColor
+    const foreground = editor.textColor
+    for (const [background, themeMuted] of [["#202020", "#a0b0c0"], ["#eeeeee", "#506070"]]) {
+      editor.backgroundColor = background
+      editor.focusedBackgroundColor = background
+      const themeColor = RGBA.fromHex(themeMuted)
+      const snapshot = themeColor.toInts()
+      const ghostColor = dimPlaceholderColor(themeColor)
+      expect(ghostColor).not.toBe(themeColor)
+      expect(ghostColor.a).toBeCloseTo(0.55, 2)
+      expect(themeColor.toInts()).toEqual(snapshot)
+      inline.sync(editor, "Next prompt", ghostColor, true)
+      await setup.renderOnce()
+      const span = setup.captureSpans().lines[0].spans.find((span) => span.text.includes("Next prompt"))!
+      const bg = RGBA.fromHex(background).toInts()
+      for (let channel = 0; channel < 3; channel++) {
+        expect(span.fg!.toInts()[channel]).toBeCloseTo(Math.round(snapshot[channel] * ghostColor.a + bg[channel] * (1 - ghostColor.a)), 0)
+      }
+      expect(editor.textColor).toBe(foreground)
+      expect(editor.plainText).toBe("")
+    }
+    inline.clear()
+    expect(editor.placeholder).toBe(original)
+    expect(editor.placeholderColor).toBe(originalColor)
+  })
+})
 
 test("ghost renders inside the real empty textarea without changing buffer or undo; restores rich hint and color", async () => {
   await withEditor(async (editor, setup) => {

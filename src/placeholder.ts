@@ -1,6 +1,10 @@
-import type { TextareaRenderable } from "@opentui/core"
+import { RGBA, type TextareaRenderable } from "@opentui/core"
 
 export type PlaceholderEditor = Pick<TextareaRenderable, "placeholder" | "placeholderColor" | "plainText" | "isDestroyed">
+
+export function dimPlaceholderColor(muted: RGBA): RGBA {
+  return RGBA.fromValues(muted.r, muted.g, muted.b, muted.a * 0.55)
+}
 
 export function createInlinePlaceholder() {
   let owned: {
