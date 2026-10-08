@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-10-08
+
+### Changed
+
+- **composer:** Remove redundant editor existence guard
+
+### Fixed
+
+- **lifecycle:** Bound recent completion deduplication history
+- **options:** Validate booleans and normalize accept bindings
+- **deps:** Align host and renderer compatibility requirements
+- **install:** Tolerate unrelated legacy configs and spaced paths
+- **composer:** Preserve navigation and rebound accept shortcuts
+- **model:** Anchor small-model provider on the session agent model
+- **model:** Match host title-model variant and default-provider fallback
+
 ## [1.0.1] - 2026-10-08
 
 ### Fixed
@@ -181,6 +197,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Options for `model`, `acceptKeys`, `maxChars`, `idleDelayMs`,
   `recentMessages` and `system`.
 
+[1.0.2]: https://github.com/ozandogrultan/opencode-ghost/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/ozandogrultan/opencode-ghost/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.6.0...v1.0.0
 [0.6.0]: https://github.com/ozandogrultan/opencode-ghost/compare/v0.5.1...v0.6.0
