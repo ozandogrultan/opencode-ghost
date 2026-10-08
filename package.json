@@ -1,7 +1,7 @@
 {
   "name": "opencode-ghost",
   "version": "0.6.0",
-  "description": "Claude Code-style next-prompt suggestions in the opencode TUI, shown as dimmed ghost text and accepted with Tab. An opencode plugin.",
+  "description": "Stateless inline next-prompt ghosts for the empty OpenCode V2 composer, accepted with Tab or Right.",
   "type": "module",
   "license": "MIT",
   "author": "Ozan Dogrultan",
@@ -36,7 +36,7 @@
   },
   "packageManager": "bun@1.4.2",
   "engines": {
-    "opencode": ">=1.18.0"
+    "opencode": ">=2.0.0"
   },
   "scripts": {
     "prepare": "husky",
@@ -51,16 +51,15 @@
     "solid-js": "^1.9.12"
   },
   "peerDependencies": {
-    "@opencode-ai/plugin": "*",
+    "@opencode/plugin": "*",
     "solid-js": "*"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.2",
-    "@opencode-ai/plugin": "1.18.25",
-    "@opentui/core": "0.4.5",
-    "@opentui/keymap": "0.4.5",
-    "@opentui/solid": "0.4.5",
+    "@opencode/plugin": "2.0.25",
+    "@opentui/core": "^0.5.12",
+    "@opentui/solid": "^0.5.12",
     "@types/node": "24.12.2",
     "husky": "^9.1.7",
     "typescript": "7.0.2"

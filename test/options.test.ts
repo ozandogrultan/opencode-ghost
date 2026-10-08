@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { DEFAULT_SYSTEM, resolveOptions } from "../src/options"
+import { DEFAULT_SYSTEM, removedOptionKeys, resolveOptions } from "../src/options"
 
 describe("resolveOptions", () => {
   test("applies defaults", () => {
@@ -48,5 +48,23 @@ describe("resolveOptions", () => {
     expect(opts.idleDelayMs).toBe(500)
     expect(opts.recentMessages).toBe(10)
     expect(opts.model).toBeUndefined()
+  })
+})
+
+describe("removedOptionKeys", () => {
+  test("returns nothing for current options", () => {
+    expect(removedOptionKeys(undefined)).toEqual([])
+    expect(removedOptionKeys({ model: "x/y", acceptKeys: ["tab"] })).toEqual([])
+  })
+
+  test("flags dropped transport and marker options", () => {
+    expect(
+      removedOptionKeys({
+        endpoint: "https://example.com",
+        apiKey: "sk-x",
+        internalSessionMarkerDir: "/tmp/x",
+        argHints: { foo: ["a"] },
+      }),
+    ).toEqual(["endpoint", "apiKey", "internalSessionMarkerDir", "argHints"])
   })
 })

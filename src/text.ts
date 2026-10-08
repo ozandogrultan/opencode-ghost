@@ -1,27 +1,51 @@
-export function parseModel(
-  spec: unknown,
-): { providerID: string; modelID: string } | undefined {
-  if (!spec) return undefined
-  if (typeof spec === "object" && spec !== null) {
-    const obj = spec as Record<string, unknown>
-    const providerID =
-      typeof obj.providerID === "string"
-        ? obj.providerID
-        : typeof obj.provider === "string"
-          ? obj.provider
-          : undefined
-    const modelID =
-      typeof obj.modelID === "string"
-        ? obj.modelID
-        : typeof obj.id === "string"
-          ? obj.id
-          : typeof obj.model === "string"
-            ? obj.model
-            : undefined
-    if (providerID && modelID) return { providerID, modelID }
-    return undefined
+import type { LocationRef, ModelInfo, OpenCodeClient } from "@opencode/client"
+
+export type SuggestionModel = { providerID: string; modelID: string; variant?: string }
+
+export const NO_SMALL_MODEL = "No default small model available; set /suggest model provider/model"
+
+export type SmallModelClient = {
+  agent: Pick<OpenCodeClient["agent"], "list">
+  model: Pick<OpenCodeClient["model"], "default" | "list">
+}
+
+export function selectSmallModel(models: readonly ModelInfo[], providerID: string): SuggestionModel | undefined {
+  const available = models.filter((model) => model.providerID === providerID && model.enabled &&
+    model.status === "active" && model.capabilities.input.some((item) => item.startsWith("text")) &&
+    model.capabilities.output.some((item) => item.startsWith("text")))
+  for (const family of ["gpt-luna", "gemini-flash-lite", "gemini-flash", "claude-haiku"]) {
+    const model = available.find((model) => model.family === family)
+    if (model) return { providerID: model.providerID, modelID: model.id }
   }
-  if (typeof spec !== "string") return undefined
+  return undefined
+}
+
+export async function resolveSmallModel(
+  client: SmallModelClient,
+  location: LocationRef,
+  signal: AbortSignal,
+  providerID?: string,
+): Promise<SuggestionModel | undefined> {
+  if (signal.aborted) return undefined
+  const agents = await client.agent.list({ location }, { signal })
+  if (signal.aborted) return undefined
+  const configured = agents.data.find((agent) => agent.id === "title")?.model
+  if (configured) return { providerID: configured.providerID, modelID: configured.id, ...(configured.variant ? { variant: configured.variant } : {}) }
+  if (!providerID) {
+    const primary = await client.model.default({ location }, { signal })
+    if (signal.aborted) return undefined
+    providerID = primary.data?.providerID
+  }
+  if (!providerID) throw new Error(NO_SMALL_MODEL)
+  const catalog = await client.model.list({ location }, { signal })
+  if (signal.aborted) return undefined
+  const model = selectSmallModel(catalog.data, providerID)
+  if (!model) throw new Error(NO_SMALL_MODEL)
+  return model
+}
+
+export function parseModel(spec: string | undefined): { providerID: string; modelID: string } | undefined {
+  if (!spec || /\s/.test(spec)) return undefined
   const index = spec.indexOf("/")
   if (index <= 0 || index === spec.length - 1) return undefined
   return { providerID: spec.slice(0, index), modelID: spec.slice(index + 1) }
@@ -51,34 +75,6 @@ export function normalize(raw: string, maxChars: number): string | undefined {
   if (!cleaned || /^none\.?$/i.test(cleaned)) return undefined
   if (cleaned.length <= maxChars) return cleaned
   return cleaned.slice(0, maxChars - 1).trimEnd() + "…"
-}
-
-/**
- * Number of visual rows `text` occupies when word-wrapped to `width` columns.
- * Mirrors the greedy word wrap the prompt renderer uses, so a ghost can reserve
- * exactly as many rows as it needs. Long words break at the column boundary.
- */
-export function wrapCount(text: string, width: number): number {
-  if (width <= 0) return 1
-  let lines = 1
-  let col = 0
-  for (const word of text.split(/\s+/).filter(Boolean)) {
-    let length = word.length
-    if (col > 0) {
-      if (col + 1 + length <= width) {
-        col += 1 + length
-        continue
-      }
-      lines += 1
-      col = 0
-    }
-    while (length > width) {
-      lines += 1
-      length -= width
-    }
-    col = length
-  }
-  return lines
 }
 
 export function isEcho(suggestion: string, previous: string): boolean {

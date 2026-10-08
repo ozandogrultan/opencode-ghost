@@ -2,44 +2,32 @@
 
 [![CI](https://github.com/ozandogrultan/opencode-ghost/actions/workflows/ci.yml/badge.svg)](https://github.com/ozandogrultan/opencode-ghost/actions/workflows/ci.yml)
 
-**Next-prompt suggestions** for the [opencode](https://opencode.ai) TUI, in the
+An **OpenCode V2 TUI plugin** providing next-prompt suggestions, in the
 style of Claude Code: after each turn a small model reads the recent
 conversation and writes the message you would most likely send next, shown as
-dimmed ghost text you accept with <kbd>Tab</kbd> (or <kbd>→</kbd>).
+a dimmed inline placeholder in the empty composer with
+<kbd>Tab</kbd>/<kbd>→</kbd> to accept it.
 
 > Why "ghost": it writes the line you were about to type, then waits for you to
 > take it.
 
 ## What it does
 
-- **Suggests your next message.** On `session.idle` it debounces, builds a short
-  transcript of the recent turns, and asks a model (your `small_model` by
-  default) for one line that sounds like you.
-- **Ghost text, `Tab` to accept.** The suggestion renders under the prompt;
-  `Tab` or `→` drops it into the input so you can edit and send.
-- **Slash-command argument ghosts while typing.** After `/name `, the accepted
-  argument options (from `argHints`) are listed as `[a | b | c]` inside the
-  prompt input box, right after the caret. Once you start typing an argument,
-  the list gives way to a dimmed inline completion of the matching option (e.g.
-  `/keepwarm alw` ghosts `ays`). Running out of options or naming a command
-  with no configured hints shows no ghost — command and skill descriptions are
-  never suggested as if they were arguments. Tab completes the next argument.
-  While the command name is still being typed, opencode's own slash menu stays
-  in charge. Purely local — no model calls.
-- **History ghost while typing.** If the line you are typing is a prefix of a
-  message you already sent in the same session, the rest of it is ghosted in
-  the box as well; Tab pulls the full line back. Also purely local.
-- **Grey, dimmed ghost styling.** Every ghost is grey and dimmed so it cannot
-  be mistaken for typed text. A next-message suggestion that is wider than the
-  prompt wraps onto extra rows and grows the prompt box (up to five rows) so it
-  stays fully readable; other ghosts are clipped to the box and never spill
-  past it.
-- **`/suggest` toggles it.** State is stored in the plugin KV.
+- **Suggests your next message.** After a turn finishes, it debounces, builds a
+  short transcript of the recent turns, and asks a model for one line that
+  sounds like you.
+- **Inline empty-composer ghost.** The suggestion renders as the textarea's
+  dimmed placeholder only while the normal composer is empty and focused in an
+  idle session. `Tab` or `→` inserts it as editable text; Enter does not accept
+  or submit the ghost. Acceptance never replaces a draft or touches the clipboard.
+- **Clears as you type.** Typing anything other than an accept key dismisses
+  the suggestion.
+- **`/suggest` toggles it.** State is stored durably via the plugin's storage.
 
 ## Requirements
 
-- [opencode](https://opencode.ai) (TUI plugins; tested on 1.18.x).
-- A cheap/fast model for `small_model` — or set `model` explicitly.
+- [opencode](https://opencode.ai) v2 (TUI plugins; tested against 2.0.25).
+- A provider/model that supports the stateless generation endpoint, or set `model` explicitly.
 
 ## Install
 
@@ -53,102 +41,126 @@ cd opencode-ghost
 
 Then **restart opencode** — plugins are loaded at startup only. `install.sh`
 copies the plugin into `<config>/plugins/opencode-ghost/` and registers it in
-`<config>/tui.json` (backing the file up first).
+`<config>/cli.json`, migrating an existing v1 `tui.json` registration (and its
+options) if one is found.
+Removed options (`apiKey`, `endpoint`, `internalSessionMarkerDir`, `argHints`)
+are stripped from Ghost registrations. Other configuration is preserved.
+The installer accepts JSON objects only; JSONC or invalid configuration is
+left intact along with the installed sources and requires manual registration
+using the snippet below. Node is required for the installer.
 
 ### Manually
 
-Add the checkout to your `tui.json` (global at `~/.config/opencode/tui.json`, or
-a project's `.opencode/`). Plugins are loaded as source:
+Add the plugin to your `cli.json` (normally `~/.config/opencode/cli.json`).
+For an isolated test, set `OPENCODE_CONFIG_DIR` to a separate configuration
+directory containing this file; a project's `.opencode/cli.json` is not loaded.
 
 ```jsonc
 {
-  "$schema": "https://opencode.ai/tui.json",
-  "plugin": ["/absolute/path/to/opencode-ghost/src/tui.tsx"],
+  "plugins": ["/absolute/path/to/opencode-ghost/src"]
 }
 ```
 
-### From npm
-
-```sh
-opencode plugin opencode-ghost       # current project
-opencode plugin -g opencode-ghost    # global
-```
-
-Restart opencode after changing `tui.json`.
-
-## Options
-
-Pass an options object as the second element of the plugin tuple:
+Pass options with the object form:
 
 ```jsonc
 {
-  "plugin": [
-    ["opencode-ghost", {
-      "enabled": true,
-      "model": "anthropic/claude-haiku-4-5",
-      "acceptKeys": ["tab", "right"],
-      "maxChars": 120,
-      "idleDelayMs": 500,
-      "recentMessages": 10
-    }]
+  "plugins": [
+    {
+      "package": "/absolute/path/to/opencode-ghost/src",
+       "options": { "model": "openai/gpt-6-luna-fast" }
+    }
   ]
 }
 ```
 
-| Option           | Type       | Default               | Notes                                                                 |
-| ---------------- | ---------- | --------------------- | --------------------------------------------------------------------- |
-| `enabled`        | `boolean`  | `true`                | Initial state; `/suggest` toggles it at runtime (persisted).          |
-| `model`          | `string`   | session `small_model` | `provider/model`. Falls back to `small_model`, then the session model. |
-| `endpoint`       | `string`   | unset                 | Custom OpenAI-compatible or gateway endpoint (`baseURL` or `/chat/completions`). Enables stateless direct generation without creating OpenCode sessions. |
-| `apiKey`         | `string`   | unset                 | API key for `endpoint`, supporting `{file:...}`, `{env:...}`, or raw token. |
-| `acceptKeys`     | `string[]` | `["tab", "right"]`    | Key names as reported by the terminal (`tab`, `right`, ...).          |
-| `maxChars`       | `number`   | `120`                 | Maximum suggestion length.                                            |
-| `idleDelayMs`    | `number`   | `500`                 | Debounce after a turn finishes before generating.                     |
-| `recentMessages` | `number`   | `10`                  | How many recent messages feed the suggestion prompt.                  |
-| `system`         | `string`   | built-in              | Override the system prompt sent to the suggestion model.              |
-| `backOnEmptyLeft` | `boolean`  | `true`                | Return to the home screen with Left when the prompt is empty.         |
-| `internalSessionMarkerDir` | `string` | unset       | Optional extra crash-recovery tracking. A configuration-free sweep already reaps leftover hidden sessions, so this is only an additional safety net. |
-| `argHints` | `Record<string, string[]>` | `{}` | Argument option lists per slash command, shown as `[a \| b \| c]` after a complete `/name ` and completed with Tab, e.g. `"/keepwarm": ["6h", "always", "off", "status"]`. Commands without an entry suggest no arguments. |
+Restart opencode after changing `cli.json`.
+
+Register a directory containing `tui.tsx`, not the file itself. For an installed
+copy, use `/absolute/path/to/config/plugins/opencode-ghost`.
+
+## Options
+
+| Option           | Type       | Default            | Notes                                                        |
+| ---------------- | ---------- | ------------------- | ------------------------------------------------------------- |
+| `enabled`        | `boolean`  | `true`              | Initial state; `/suggest` toggles it at runtime (persisted).  |
+| `model`          | `string`   | OpenCode small default | Explicit `provider/model` override. Otherwise uses the effective title-agent model or OpenCode's small-model selection policy. |
+| `acceptKeys`     | `string[]` | `["tab", "right"]`  | Key names as reported by the terminal (`tab`, `right`, ...).  |
+| `maxChars`       | `number`   | `120`               | Maximum suggestion length.                                     |
+| `idleDelayMs`    | `number`   | `500`               | Debounce after a turn finishes before generating.               |
+| `recentMessages` | `number`   | `10`                | How many recent messages feed the suggestion prompt.            |
+| `system`         | `string`   | built-in            | Override the system prompt sent to the suggestion model.        |
+| `backOnEmptyLeft` | `boolean` | `true`              | Return to the home screen with Left when the composer is empty. |
 
 ## Commands
 
-- `/suggest` — toggle suggestions on/off (state is stored in the plugin KV).
+- `/suggest` — toggle suggestions on/off (persisted).
+- `/suggest model openai/gpt-6-luna-fast` — set a persisted runtime model override.
+- `/suggest model clear` — clear the override and use the configured `model`,
+  or the OpenCode small default, never the main model.
+
+Model precedence is the persisted `/suggest model` override, then the `model`
+option, then the effective title agent's model from OpenCode's public agent API.
+OpenCode resolves inherited `agents.title.model`, migrated legacy `small_model`,
+and directory definitions such as `agents/title.md` and `agent/title.md`, including
+agent deletion/recreation. Explicitly configured variants are preserved.
+Without a configured title model, or when the title agent is disabled, Ghost
+mirrors OpenCode 2.0.25's internal small-model policy until a public API exists:
+within the session model's provider (or the location's default provider), choose
+the first enabled, active text-input/text-output catalog model in family order
+`gpt-luna`, `gemini-flash-lite`, `gemini-flash`, `claude-haiku`.
+Catalog IDs are used directly. No matching small model means a warning and no
+suggestion; Ghost never falls back to the main model or another provider.
 
 When enabling, a suggestion is generated immediately for the current session.
 
 ## How it works
 
-- Listens for `session.idle`, debounces, and builds a short transcript from the
-  session's recent messages.
-- Asks a model (your `small_model` by default) for one short next user message.
-  When provider credentials or an `endpoint` are available, it generates suggestions
-  statelessly via direct HTTP fetch (zero server sessions created, zero cmux/session
-  hooks emitted). Otherwise, falls back to a throwaway hidden session with tools
-  disabled that is deleted immediately afterwards. Every hidden-session call is scoped
-  to the current session's project directory, hidden sessions carry a metadata tag that
-  survives the server's automatic title generation, and a periodic sweep (plus
-  shutdown cleanup) reaps any leftovers — including sessions orphaned by a
-  crash — with no configuration required.
-- Renders the result through the `session_prompt` host slot, ghosted inside
-  the prompt box at the caret, and accepts it into the input via the prompt
-  ref.
+- Listens for `session.execution.succeeded`, debounces, and builds a short
+  transcript from the session's recent messages.
+- Generates the suggestion statelessly through OpenCode's `generate.text` API —
+  no session is created, and the call is cancelled if a newer turn finishes,
+  the session is left, suggestions are disabled, or the plugin unloads.
+- A zero-size prompt-footer marker identifies the normal composer through the
+  public renderer tree. The textarea's public placeholder setter displays the
+  suggestion without changing its buffer, caret, history or undo state.
+- Solid effects and a public pre-render callback synchronize placeholder
+  ownership. Host hint/color updates are retained while the ghost is visible;
+  dismissal restores only values still owned by Ghost, including rich hints.
+- Accepting uses the composer editor's `insertText` directly, without submitting.
+- Typing, pasting, navigation, a new execution, disabling and unloading cancel
+  pending generation. Duplicate completion events do not generate again.
 
 ## Caveats
 
-- **Owns the `session_prompt` slot.** opencode only exposes the prompt ref
-  through that slot, so this plugin replaces the default prompt component. It
-  forwards `on_submit`, `ref`, `right`, `visible`, and `disabled`, and cannot be
-  combined with another plugin that also renders `session_prompt`.
-- **Ghost placement.** All ghosts (next-message suggestion, typing
-  completions) render inside the prompt box right after the caret; opencode
-  exposes no inline-completion API, so the plugin overlays the prompt's
-  editor renderable and never touches the prompt's hint row.
-- **Cost.** One small-model call per turn while enabled. Point `model` at a
-  cheap or free model.
-- **`acceptKeys`.** `tab` is also opencode's agent-cycle key; this plugin only
-  captures it while a suggestion is visible and the input is empty.
-- Suggestions fail silently (no ghost text) if the model is unavailable, the
-  provider is out of balance, or the reply is `NONE`.
+- **No inline typing completions.** V1's slash-argument and history ghosts
+  are not supported. This ghost is a next-prompt placeholder for an empty
+  composer, not a completion after typed text.
+- **Focus safety.** Modal/form and shell editors are never acceptance targets.
+  Non-base keymap modes, autocomplete capture, renderer/editor selections and
+  composer extmarks suppress the ghost. The textarea must be the first of exactly
+  two children in its body (editor and metadata); additional UI, including image
+  previews and failed-preview boxes, suppresses display and acceptance.
+- **Attachment visibility.** V2 does not expose draft attachments to plugins.
+  Mentionless files without a rendered preview (non-image files or images with
+  previews disabled) cannot be detected, so a ghost may appear in those drafts.
+  Disable suggestions with `/suggest` when using such attachments.
+- **Renderer integration.** Composer discovery depends on the host renderer
+  hierarchy and its composer identity guard. Placeholder synchronization uses
+  OpenTUI's public pre-render callback; host renderer changes need re-verification.
+- **Key fallthrough.** Without an eligible ghost, Tab/Right fall through to
+  the host. OpenCode V2's default agent-cycle shortcut is Shift+Tab.
+- **Cost.** One model call per turn while enabled. Point `model` at a cheap or
+  free model.
+- **Provider compatibility.** OpenAI and google-vertex generation worked in
+  verification. Anthropic's stateless endpoint failed with plugin-auth OAuth
+  in verification; choose a supported provider/model. Luna 6.1 is not available.
+- Generation errors show one warning toast per plugin load with the model
+  override command. Aborts and `NONE` replies produce no warning or preview.
+- Effective agents and catalogs are read per generation for the session's
+  location. The stateless endpoint has no location argument; project-only models
+  may fail server-global resolution. Invalid overrides and provider failures warn
+  without retrying through another provider or a session.
 
 ## Development
 

@@ -1,31 +1,26 @@
-export type PromptSuggestOptions = {
+import { parseModel } from "./text"
+import { canonicalKey } from "./composer"
+
+export type GhostOptions = {
   enabled?: boolean
   model?: string
-  endpoint?: string
-  apiKey?: string
   acceptKeys?: string[]
   backOnEmptyLeft?: boolean
-  internalSessionMarkerDir?: string
   maxChars?: number
   idleDelayMs?: number
   recentMessages?: number
   system?: string
-  argHints?: Record<string, string[]>
 }
 
 export type ResolvedOptions = {
   enabled: boolean
   model: string | undefined
-  endpoint: string | undefined
-  apiKey: string | undefined
   acceptKeys: string[]
   backOnEmptyLeft: boolean
-  internalSessionMarkerDir: string | undefined
   maxChars: number
   idleDelayMs: number
   recentMessages: number
   system: string
-  argHints: Record<string, readonly string[]>
 }
 
 export const DEFAULT_SYSTEM = [
@@ -59,27 +54,26 @@ const DEFAULTS = {
   recentMessages: 10,
 }
 
-export function resolveOptions(options: PromptSuggestOptions | undefined): ResolvedOptions {
-  const input = options ?? {}
+const REMOVED_OPTION_KEYS = ["endpoint", "apiKey", "internalSessionMarkerDir", "argHints"] as const
+
+export function removedOptionKeys(raw: Readonly<Record<string, unknown>> | undefined): string[] {
+  if (!raw) return []
+  return REMOVED_OPTION_KEYS.filter((key) => key in raw)
+}
+
+export function resolveOptions(options: Readonly<Record<string, unknown>> | undefined): ResolvedOptions {
+  const input = (options ?? {}) as GhostOptions
   const maxChars = input.maxChars
   const idleDelayMs = input.idleDelayMs
   const recentMessages = input.recentMessages
   return {
     enabled: input.enabled ?? DEFAULTS.enabled,
     model: typeof input.model === "string" && input.model.trim() ? input.model.trim() : undefined,
-    endpoint:
-      typeof input.endpoint === "string" && input.endpoint.trim() ? input.endpoint.trim() : undefined,
-    apiKey:
-      typeof input.apiKey === "string" && input.apiKey.trim() ? input.apiKey.trim() : undefined,
     acceptKeys:
       Array.isArray(input.acceptKeys) && input.acceptKeys.length > 0
-        ? input.acceptKeys
+        ? input.acceptKeys.filter((key) => typeof key === "string" && key.trim()).map(canonicalKey)
         : [...DEFAULTS.acceptKeys],
     backOnEmptyLeft: input.backOnEmptyLeft ?? DEFAULTS.backOnEmptyLeft,
-    internalSessionMarkerDir:
-      typeof input.internalSessionMarkerDir === "string" && input.internalSessionMarkerDir.trim()
-        ? input.internalSessionMarkerDir.trim()
-        : undefined,
     maxChars: typeof maxChars === "number" && maxChars > 0 ? maxChars : DEFAULTS.maxChars,
     idleDelayMs:
       typeof idleDelayMs === "number" && idleDelayMs >= 0 ? idleDelayMs : DEFAULTS.idleDelayMs,
@@ -88,13 +82,21 @@ export function resolveOptions(options: PromptSuggestOptions | undefined): Resol
         ? recentMessages
         : DEFAULTS.recentMessages,
     system: typeof input.system === "string" && input.system.trim() ? input.system : DEFAULT_SYSTEM,
-    argHints:
-      input.argHints && typeof input.argHints === "object" && !Array.isArray(input.argHints)
-        ? Object.fromEntries(
-            Object.entries(input.argHints)
-              .filter(([, value]) => Array.isArray(value) && value.length > 0)
-              .map(([key, value]) => [key.toLowerCase(), [...value]]),
-          )
-        : {},
   }
+}
+
+export function parseSuggestCommand(input: string | undefined): { type: "toggle" } | { type: "model"; model: string | undefined } | { type: "invalid" } {
+  const raw = input?.trim() ?? ""
+  if (!raw) return { type: "toggle" }
+  const match = /^model\s+(\S+)$/.exec(raw)
+  if (!match || (match[1] !== "clear" && !parseModel(match[1]))) return { type: "invalid" }
+  return { type: "model", model: match[1] === "clear" ? undefined : match[1] }
+}
+
+export function suggestionModel(runtime: string | undefined, configured: string | undefined) {
+  const spec = runtime ?? configured
+  if (spec === undefined) return undefined
+  const model = parseModel(spec)
+  if (!model) throw new Error("Invalid suggestion model; set /suggest model provider/model")
+  return model
 }

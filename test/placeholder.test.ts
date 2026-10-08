@@ -1,0 +1,195 @@
+import { expect, test } from "bun:test"
+import { BoxRenderable, RGBA, StyledText, TextareaRenderable, TextRenderable, dim } from "@opentui/core"
+import { createTestRenderer } from "@opentui/core/testing"
+import { composerAction, isEmptyComposer } from "../src/composer"
+import { createInlinePlaceholder } from "../src/placeholder"
+
+const muted = RGBA.fromHex("#777777")
+
+async function withEditor(run: (editor: TextareaRenderable, setup: Awaited<ReturnType<typeof createTestRenderer>>) => void | Promise<void>) {
+  const setup = await createTestRenderer({ width: 60, height: 8 })
+  const editor = new TextareaRenderable(setup.renderer, { id: "composer", width: 60, height: 3, placeholder: new StyledText([dim("Original hint")]), placeholderColor: "#999999" })
+  setup.renderer.root.add(editor)
+  editor.focus()
+  try {
+    await run(editor, setup)
+  } finally {
+    setup.renderer.destroy()
+  }
+}
+
+test("ghost renders inside the real empty textarea without changing buffer or undo; restores rich hint and color", async () => {
+  await withEditor(async (editor, setup) => {
+    const inline = createInlinePlaceholder()
+    const original = editor.placeholder
+    const originalColor = editor.placeholderColor
+    inline.sync(editor, "Next prompt", muted, true)
+    await setup.renderOnce()
+    expect(setup.captureCharFrame()).toContain("Next prompt")
+    expect(editor.plainText).toBe("")
+    expect(editor.placeholderColor).toBe(muted)
+    expect(inline.visible(editor, "Next prompt")).toBe(true)
+    editor.undo()
+    expect(editor.plainText).toBe("")
+    inline.clear()
+    expect(editor.placeholder).toBe(original)
+    expect(editor.placeholderColor).toBe(originalColor)
+  })
+})
+
+test("pre-render synchronization preserves host placeholder and color updates while keeping the ghost visible", async () => {
+  await withEditor(async (editor, setup) => {
+    const inline = createInlinePlaceholder()
+    const sync = async () => { inline.sync(editor, "Next prompt", muted, true) }
+    setup.renderer.setFrameCallback(sync)
+    inline.sync(editor, "Next prompt", muted, true)
+    const updated = new StyledText([dim("Updated host hint")])
+    const updatedColor = RGBA.fromHex("#aaaaaa")
+    editor.placeholder = updated
+    editor.placeholderColor = updatedColor
+    await setup.renderOnce()
+    expect(setup.captureCharFrame()).toContain("Next prompt")
+    expect(editor.plainText).toBe("")
+    setup.renderer.removeFrameCallback(sync)
+    inline.clear()
+    expect(editor.placeholder).toBe(updated)
+    expect(editor.placeholderColor).toBe(updatedColor)
+  })
+})
+
+test("dismissal does not overwrite host changes made since the last synchronization", async () => {
+  await withEditor((editor) => {
+    const inline = createInlinePlaceholder()
+    inline.sync(editor, "Next prompt", muted, true)
+    const updated = new StyledText([dim("Latest hint")])
+    const updatedColor = RGBA.fromHex("#aaaaaa")
+    editor.placeholder = updated
+    editor.placeholderColor = updatedColor
+    inline.clear()
+    expect(editor.placeholder).toBe(updated)
+    expect(editor.placeholderColor).toBe(updatedColor)
+  })
+})
+
+test("typing, ineligible focus/mode, disable/navigation, missing suggestion and unload restore the host hint", async () => {
+  await withEditor((editor) => {
+    const original = editor.placeholder
+    const color = editor.placeholderColor
+    for (const reason of ["typing", "ineligible", "disabled", "navigation", "dismiss", "unload"]) {
+      const inline = createInlinePlaceholder()
+      inline.sync(editor, "Next prompt", muted, true)
+      if (reason === "typing") editor.insertText("draft")
+      if (reason === "unload") inline.clear()
+      else inline.sync(reason === "navigation" ? undefined : editor, reason === "dismiss" ? undefined : "Next prompt", muted, reason === "typing")
+      expect(inline.visible(editor, "Next prompt")).toBe(false)
+      expect(editor.placeholder).toBe(original)
+      expect(editor.placeholderColor).toBe(color)
+      expect(editor.plainText).toBe(reason === "typing" ? "draft" : "")
+      editor.setText("")
+    }
+  })
+})
+
+test("replacing editors restores the old editor and snapshots the replacement; destroyed editor cleanup is safe", async () => {
+  await withEditor((editor, setup) => {
+    const inline = createInlinePlaceholder()
+    const original = editor.placeholder
+    const replacement = new TextareaRenderable(setup.renderer, { id: "replacement", placeholder: "Other hint" })
+    setup.renderer.root.add(replacement)
+    inline.sync(editor, "Next prompt", muted, true)
+    inline.sync(replacement, "Other prompt", muted, true)
+    expect(editor.placeholder).toBe(original)
+    expect(replacement.placeholder).toBe("Other prompt")
+    inline.clear()
+    expect(replacement.placeholder).toBe("Other hint")
+    inline.sync(editor, "Next prompt", muted, true)
+    editor.destroy()
+    expect(inline.visible(editor, "Next prompt")).toBe(false)
+    expect(() => inline.clear()).not.toThrow()
+  })
+})
+
+test("only accepting a visible eligible ghost materializes text; placeholder never submits itself", async () => {
+  await withEditor((editor) => {
+    const inline = createInlinePlaceholder()
+    inline.sync(editor, "Next prompt", muted, true)
+    let submitted = "unset"
+    editor.onSubmit = () => { submitted = editor.plainText }
+    editor.submit()
+    expect(submitted).toBe("")
+    expect(composerAction(editor, () => editor, "dialog", true, inline.visible(editor, "Next prompt"), "Next prompt")).toBe(false)
+    expect(composerAction(editor, () => editor, "base", false, inline.visible(editor, "Next prompt"), "Next prompt")).toBe(false)
+    expect(editor.plainText).toBe("")
+    expect(composerAction(editor, () => editor, "base", true, inline.visible(editor, "Next prompt"), "Next prompt")).toBe(true)
+    inline.clear()
+    expect(editor.plainText).toBe("Next prompt")
+    expect(submitted).toBe("")
+    editor.undo()
+    expect(editor.plainText).toBe("")
+    expect(composerAction(editor, () => editor, "base", true, inline.visible(editor, "Next prompt"), "Next prompt")).toBe(false)
+  })
+})
+
+test("the real composer gate suppresses autocomplete, attachments, selections, wrong focus and modes", async () => {
+  await withEditor((editor, setup) => {
+    const body = new BoxRenderable(setup.renderer, { id: "body" })
+    setup.renderer.root.remove(editor)
+    setup.renderer.root.add(body)
+    body.add(editor)
+    body.add(new BoxRenderable(setup.renderer, { id: "metadata" }))
+    const eligible = () => isEmptyComposer(editor, editor, "base", true, false)
+    expect(eligible()).toBe(true)
+    const slot = new BoxRenderable(setup.renderer, { id: "slot-layout-slot-node-24-1" })
+    body.add(slot, 0)
+    expect(eligible()).toBe(true)
+    const slotContent = new TextRenderable(setup.renderer, { id: "slot-content", content: "Attachment" })
+    slot.add(slotContent)
+    expect(eligible()).toBe(false)
+    slotContent.destroy()
+    expect(eligible()).toBe(true)
+    editor.traits = { capture: ["escape", "navigate", "submit", "tab"] }
+    expect(eligible()).toBe(false)
+    editor.traits = { capture: ["tab"] }
+    const attachment = editor.extmarks.create({ start: 0, end: 0, virtual: true })
+    expect(eligible()).toBe(false)
+    editor.extmarks.delete(attachment)
+    expect(eligible()).toBe(true)
+    expect(isEmptyComposer(editor, editor, "base", true, true)).toBe(false)
+    expect(isEmptyComposer(editor, undefined, "base", true, false)).toBe(false)
+    expect(isEmptyComposer(editor, editor, "dialog", true, false)).toBe(false)
+    expect(isEmptyComposer(editor, editor, "base", false, false)).toBe(false)
+    editor.blur()
+    expect(eligible()).toBe(false)
+  })
+})
+
+test("mentionless preview UI suppresses display and acceptance even when the image preview fails", async () => {
+  await withEditor((editor, setup) => {
+    const body = new BoxRenderable(setup.renderer, { id: "body" })
+    setup.renderer.root.remove(editor)
+    setup.renderer.root.add(body)
+    body.add(editor)
+    body.add(new BoxRenderable(setup.renderer, { id: "metadata" }))
+    const inline = createInlinePlaceholder()
+    body.add(new BoxRenderable(setup.renderer, { id: "slot-layout-slot-node-24-1" }), 0)
+    const sync = () => inline.sync(editor, "Next prompt", muted, isEmptyComposer(editor, editor, "base", true, false))
+    sync()
+    expect(inline.visible(editor, "Next prompt")).toBe(true)
+    const previews = new BoxRenderable(setup.renderer, { id: "previews" })
+    const thumbnail = new BoxRenderable(setup.renderer, { id: "thumbnail" })
+    previews.add(thumbnail)
+    body.add(previews, 0)
+    expect(editor.extmarks.getAll()).toEqual([])
+    sync()
+    expect(inline.visible(editor, "Next prompt")).toBe(false)
+    expect(composerAction(editor, () => editor, "base", true, isEmptyComposer(editor, editor, "base", true, false), "Next prompt")).toBe(false)
+    thumbnail.add(new TextRenderable(setup.renderer, { id: "failed-preview", content: "No preview" }))
+    sync()
+    expect(inline.visible(editor, "Next prompt")).toBe(false)
+    expect(editor.plainText).toBe("")
+    previews.destroy()
+    sync()
+    expect(inline.visible(editor, "Next prompt")).toBe(true)
+    inline.clear()
+  })
+})

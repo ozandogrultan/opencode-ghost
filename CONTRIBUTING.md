@@ -11,8 +11,8 @@ cd opencode-ghost
 bun install
 ```
 
-There is no build step. `src/` holds the plugin and its pure helpers
-(`options.ts`, `text.ts`, `completion.ts`, `builtins.ts`, `tui.tsx`), `test/`
+There is no build step. `src/` holds the V2 plugin and its pure helpers,
+`test/`
 holds the bun tests, `tests/changelog.sh` and `scripts/changelog.sh` own the
 release bookkeeping, and `opencode` transpiles the TSX source at load time.
 
@@ -35,12 +35,12 @@ CI runs the same checks plus ShellCheck on the scripts.
 - Keep PRs focused. One concern per PR, with a clear description of the *why*.
 - Match the surrounding style. TypeScript is formatted by hand; no formatter is
   enforced.
-- The plugin owns the `session_prompt` slot, so it replaces the default prompt
-  component; do not regress the props it forwards.
-- Keep `Tab`/`→` capture scoped: only while a suggestion or completion is
-  visible, and never steal `tab` when the input is not empty.
-- The typing ghosts (slash arguments, history) are local — no model calls.
-  Keep them that way.
+- The plugin owns only the empty composer's placeholder; preserve host hints
+  and restore owned values on dismissal and unload.
+- Keep `Tab`/`→` capture scoped to an eligible, visible suggestion in the empty
+  composer. Acceptance inserts editable text and never submits it.
+- Generate suggestions statelessly with a resolved small model; never create
+  hidden sessions or fall back to the main model.
 - New behaviour should come with a test in `test/` where practical.
 
 ## Commit messages
@@ -82,8 +82,7 @@ This is enforced locally by Git hooks that `bun install` installs (via husky):
 - `commit-msg` runs commitlint over your message.
 - `pre-commit` runs `bun run lint:sh`, `bun run typecheck`, and `bun run test`.
 
-Bypass a hook for one commit with `git commit --no-verify` (or `HUSKY=0`), but
-CI lints the commits in a pull request regardless.
+Never bypass hooks. Fix failures before committing.
 
 ## Releases
 
