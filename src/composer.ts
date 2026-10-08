@@ -38,7 +38,7 @@ export function isEmptyComposer(editor: TextareaRenderable | undefined, focused:
     !(node.id.startsWith("slot-layout-") && node.getChildren().length === 0),
   )
   if (siblings.length !== 2 || siblings[0] !== editor) return false
-  return !!editor && normal && mode === "base" && !selected && editor === focused && editor.focused && !editor.isDestroyed && editor.plainText === "" && !editor.hasSelection() && !editor.traits.capture?.includes("navigate") && editor.extmarks.getAll().length === 0
+  return normal && mode === "base" && !selected && editor === focused && editor.focused && !editor.isDestroyed && editor.plainText === "" && !editor.hasSelection() && !editor.traits.capture?.includes("navigate") && editor.extmarks.getAll().length === 0
 }
 
 export function findComposerEditor<T extends EditorNode>(marker: EditorNode | undefined, isEditor: (node: EditorNode) => node is T, isComposer: (editor: T) => boolean): T | undefined {
