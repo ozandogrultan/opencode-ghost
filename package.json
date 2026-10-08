@@ -36,7 +36,7 @@
   },
   "packageManager": "bun@1.4.2",
   "engines": {
-    "opencode": ">=2.0.0"
+    "opencode": ">=2.0.25"
   },
   "scripts": {
     "prepare": "husky",
@@ -47,9 +47,6 @@
     "lint:sh": "for script in install.sh tests/*.sh scripts/*.sh; do bash -n \"$script\" || exit; done",
     "prepublishOnly": "bun run test && bun run typecheck"
   },
-  "dependencies": {
-    "solid-js": "^1.9.12"
-  },
   "peerDependencies": {
     "@opencode/plugin": "*",
     "solid-js": "*"
@@ -58,10 +55,11 @@
     "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.2",
     "@opencode/plugin": "2.0.25",
-    "@opentui/core": "^0.5.12",
-    "@opentui/solid": "^0.5.12",
+    "@opentui/core": "^0.5.16",
+    "@opentui/solid": "^0.5.16",
     "@types/node": "24.12.2",
     "husky": "^9.1.7",
+    "solid-js": "^1.9.12",
     "typescript": "7.0.2"
   }
 }
