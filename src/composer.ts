@@ -39,9 +39,9 @@ export function isEmptyComposer(editor: TextareaRenderable | undefined, focused:
 export function isEligibleComposer(editor: TextareaRenderable | undefined, mode: string, normal: boolean, selected: boolean): boolean {
   if (!editor?.parent || editor.parent.isDestroyed) return false
   const siblings = editor.parent.getChildren().filter((node) =>
-    !(node.id.startsWith("slot-layout-") && node.getChildren().length === 0),
+    !node.id.startsWith("slot-layout-"),
   )
-  if (siblings.length !== 2 || siblings[0] !== editor) return false
+  if (siblings.length !== 1 || siblings[0] !== editor) return false
   return normal && mode === "base" && !selected && !editor.isDestroyed && editor.plainText === "" && !editor.hasSelection() && !editor.traits.capture?.includes("navigate") && editor.extmarks.getAll().length === 0
 }
 
