@@ -5,7 +5,6 @@ export type GhostOptions = {
   enabled?: boolean
   model?: string
   acceptKeys?: string[]
-  backOnEmptyLeft?: boolean
   maxChars?: number
   idleDelayMs?: number
   recentMessages?: number
@@ -16,7 +15,6 @@ export type ResolvedOptions = {
   enabled: boolean
   model: string | undefined
   acceptKeys: string[]
-  backOnEmptyLeft: boolean
   maxChars: number
   idleDelayMs: number
   recentMessages: number
@@ -48,13 +46,12 @@ export const DEFAULT_SYSTEM = [
 const DEFAULTS = {
   enabled: true,
   acceptKeys: ["tab", "right"],
-  backOnEmptyLeft: true,
   maxChars: 120,
   idleDelayMs: 500,
   recentMessages: 10,
 }
 
-const REMOVED_OPTION_KEYS = ["endpoint", "apiKey", "internalSessionMarkerDir", "argHints"] as const
+const REMOVED_OPTION_KEYS = ["endpoint", "apiKey", "internalSessionMarkerDir", "argHints", "backOnEmptyLeft"] as const
 
 export function removedOptionKeys(raw: Readonly<Record<string, unknown>> | undefined): string[] {
   if (!raw) return []
@@ -73,7 +70,6 @@ export function resolveOptions(options: Readonly<Record<string, unknown>> | unde
     enabled: typeof input.enabled === "boolean" ? input.enabled : DEFAULTS.enabled,
     model: typeof input.model === "string" && input.model.trim() ? input.model.trim() : undefined,
     acceptKeys: acceptKeys.length > 0 ? acceptKeys : [...DEFAULTS.acceptKeys],
-    backOnEmptyLeft: typeof input.backOnEmptyLeft === "boolean" ? input.backOnEmptyLeft : DEFAULTS.backOnEmptyLeft,
     maxChars: typeof maxChars === "number" && maxChars > 0 ? maxChars : DEFAULTS.maxChars,
     idleDelayMs:
       typeof idleDelayMs === "number" && idleDelayMs >= 0 ? idleDelayMs : DEFAULTS.idleDelayMs,

@@ -24,8 +24,6 @@ a dimmed inline placeholder in the empty composer with
 - **Hides as you type.** Typing and pasting abort pending generation and hide the
   preview. Emptying the composer restores the same suggestion without another
   API call; focus changes also reuse it. Navigation keys leave it intact.
-  Left on an empty eligible focused composer returns
-  home, even when suggestions are off (`backOnEmptyLeft`).
 - **`/suggest` toggles it.** State is stored durably via the plugin's storage.
 
 ## Requirements
@@ -94,7 +92,6 @@ copy, use `/absolute/path/to/config/plugins/opencode-ghost`.
 | `idleDelayMs`    | `number`   | `500`               | Debounce after a turn finishes before generating.               |
 | `recentMessages` | `number`   | `10`                | How many recent messages feed the suggestion prompt.            |
 | `system`         | `string`   | built-in            | Override the system prompt sent to the suggestion model.        |
-| `backOnEmptyLeft` | `boolean` | `true`              | Return to the home screen with Left when the composer is empty. |
 
 ## Commands
 

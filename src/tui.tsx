@@ -161,18 +161,6 @@ export default Plugin.define({
              const route = context.ui.router.current()
              return route.type === "session" ? route.sessionID : undefined
            }, () => suggestion()?.sessionID, act)),
-        {
-          id: "ghost.home",
-          bind: "left",
-          enabled: () => opts.backOnEmptyLeft,
-          run: () => {
-            const route = context.ui.router.current()
-            if (route.type !== "session") return false
-            if (!isComposerEmpty(route.sessionID)) return false
-            cancelSuggestion()
-            context.ui.router.navigate({ type: "home" })
-          },
-        },
       ], state.enabled, async (input) => {
             const command = parseSuggestCommand(input)
             if (command.type === "model") {

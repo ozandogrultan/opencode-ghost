@@ -4,9 +4,8 @@ import { DEFAULT_SYSTEM, removedOptionKeys, resolveOptions } from "../src/option
 describe("resolveOptions", () => {
   test("booleans reject truthy and falsy nonboolean values", () => {
     for (const value of ["false", "true", 0, 1, null, [], {}]) {
-      const opts = resolveOptions({ enabled: value, backOnEmptyLeft: value })
+      const opts = resolveOptions({ enabled: value })
       expect(opts.enabled).toBe(true)
-      expect(opts.backOnEmptyLeft).toBe(true)
     }
   })
 
@@ -19,7 +18,6 @@ describe("resolveOptions", () => {
     const opts = resolveOptions(undefined)
     expect(opts.enabled).toBe(true)
     expect(opts.acceptKeys).toEqual(["tab", "right"])
-    expect(opts.backOnEmptyLeft).toBe(true)
     expect(opts.maxChars).toBe(120)
     expect(opts.idleDelayMs).toBe(500)
     expect(opts.recentMessages).toBe(10)
@@ -32,7 +30,6 @@ describe("resolveOptions", () => {
       enabled: false,
       model: "openai/gpt-5",
       acceptKeys: ["tab"],
-      backOnEmptyLeft: false,
       maxChars: 40,
       idleDelayMs: 0,
       recentMessages: 3,
@@ -41,7 +38,6 @@ describe("resolveOptions", () => {
     expect(opts.enabled).toBe(false)
     expect(opts.model).toBe("openai/gpt-5")
     expect(opts.acceptKeys).toEqual(["tab"])
-    expect(opts.backOnEmptyLeft).toBe(false)
     expect(opts.maxChars).toBe(40)
     expect(opts.idleDelayMs).toBe(0)
     expect(opts.recentMessages).toBe(3)
@@ -77,7 +73,8 @@ describe("removedOptionKeys", () => {
         apiKey: "sk-x",
         internalSessionMarkerDir: "/tmp/x",
         argHints: { foo: ["a"] },
+        backOnEmptyLeft: false,
       }),
-    ).toEqual(["endpoint", "apiKey", "internalSessionMarkerDir", "argHints"])
+    ).toEqual(["endpoint", "apiKey", "internalSessionMarkerDir", "argHints", "backOnEmptyLeft"])
   })
 })

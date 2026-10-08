@@ -34,7 +34,6 @@ test("ghostKeymapLayers configures base mode for composer and global mode for su
   const composerCommands = [
     { id: "ghost.accept.tab", bind: "tab", run: () => {} },
     { id: "ghost.accept.right", bind: "right", run: () => {} },
-    { id: "ghost.home", bind: "left", run: () => {} },
   ]
   const received: ReturnType<typeof parseSuggestCommand>[] = []
   const layers = ghostKeymapLayers(composerCommands, true, async (input) => {
