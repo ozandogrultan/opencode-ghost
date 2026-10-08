@@ -130,9 +130,26 @@ test("missing default model anchors on the first enabled text model provider", a
 test("missing, builtin and recreated model-less title use small selector within session provider", async () => {
   for (const agents of [[], [title()], [title({ hidden: false, description: "Recreated" })]]) {
     const { api, calls } = client(agents, [model({ providerID: "session" })])
-    expect(await resolveSmallModel(api, location, signal(), "session")).toEqual({ providerID: "session", modelID: "actual-small-id" })
+    expect(await resolveSmallModel(api, location, signal(), { model: { providerID: "session" } })).toEqual({ providerID: "session", modelID: "actual-small-id" })
     expect(calls).toEqual(["agents", "list"])
   }
+})
+
+test("provider anchor prefers the session model, then the session agent model, then the default", async () => {
+  const models = [model({ providerID: "session" }), model({ providerID: "agent", id: "agent-small" }), model({ providerID: "primary", id: "default-small" })]
+  const agent = { ...title({ id: "build", mode: "primary", hidden: false }), model: { providerID: "agent", id: "agent-main" } }
+  const both = client([agent], models)
+  expect(await resolveSmallModel(both.api, location, signal(), { model: { providerID: "session" }, agent: "build" })).toEqual({ providerID: "session", modelID: "actual-small-id" })
+  expect(both.calls).toEqual(["agents", "list"])
+  const viaAgent = client([agent], models)
+  expect(await resolveSmallModel(viaAgent.api, location, signal(), { agent: "build" })).toEqual({ providerID: "agent", modelID: "agent-small" })
+  expect(viaAgent.calls).toEqual(["agents", "list"])
+  const unknown = client([agent], models)
+  expect((await resolveSmallModel(unknown.api, location, signal(), { agent: "missing" }))?.providerID).toBe("primary")
+  expect(unknown.calls).toEqual(["agents", "default", "list"])
+  const modelless = client([title({ id: "plan", hidden: false })], models)
+  expect((await resolveSmallModel(modelless.api, location, signal(), { agent: "plan" }))?.providerID).toBe("primary")
+  expect(modelless.calls).toEqual(["agents", "default", "list"])
 })
 
 test("resolution reads changing effective agents and catalog on each generation", async () => {

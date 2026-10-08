@@ -24,12 +24,13 @@ export async function resolveSmallModel(
   client: SmallModelClient,
   location: LocationRef,
   signal: AbortSignal,
-  providerID?: string,
+  session?: { model?: { providerID: string }; agent?: string },
 ): Promise<SuggestionModel | undefined> {
   if (signal.aborted) return undefined
   const agents = await client.agent.list({ location }, { signal })
   if (signal.aborted) return undefined
   const configured = agents.data.find((agent) => agent.id === "title")?.model
+  let providerID = session?.model?.providerID ?? (session?.agent ? agents.data.find((agent) => agent.id === session.agent)?.model?.providerID : undefined)
   if (configured?.variant) return { providerID: configured.providerID, modelID: configured.id, variant: configured.variant }
   if (!configured && !providerID) {
     const primary = await client.model.default({ location }, { signal })

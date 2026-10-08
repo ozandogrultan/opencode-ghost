@@ -76,7 +76,7 @@ export default Plugin.define({
         const explicit = suggestionModel(state.model, opts.model)
         const model = explicit
           ? await resolveExplicitModel(context.client, location, signal, explicit)
-          : await resolveSmallModel(context.client, location, signal, session?.model?.providerID)
+          : await resolveSmallModel(context.client, location, signal, session)
         if (signal.aborted || !canGenerate(sessionID) || !model) return
         const raw = await generateSuggestion(context.client, suggestionPrompt(opts.system, transcript), model, signal, warnGeneration)
         if (signal.aborted || !raw) return
