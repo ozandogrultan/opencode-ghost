@@ -1,4 +1,14 @@
 import type { KeymapCommand, KeymapLayer } from "@opencode/plugin/tui/context"
+import { canonicalKey } from "./composer"
+
+export const acceptCommandId = (key: string) => `ghost.accept.${key}`
+
+export function acceptShortcuts(acceptKeys: readonly string[], shortcuts: (id: string) => readonly string[]): Set<string> {
+  return new Set(acceptKeys.flatMap((key) => {
+    const bound = shortcuts(acceptCommandId(key))
+    return bound.map(canonicalKey)
+  }))
+}
 
 export function ghostKeymapLayers(
   composerCommands: KeymapCommand[],

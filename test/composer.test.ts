@@ -4,7 +4,7 @@ import { canonicalKey, composerAction, findComposerEditor, keyName, observeCompo
 import { createLifecycle } from "../src/lifecycle"
 
 test("input cancellation runs before consuming keymap listeners, aborts active generation and cleans up", async () => {
-  for (const name of ["backspace", "return", "left", "v"]) {
+  for (const name of ["backspace", "return", "x", "v"]) {
     const input = new InternalKeyHandler()
     const order: string[] = []
     let visible = true
@@ -33,22 +33,40 @@ test("input cancellation runs before consuming keymap listeners, aborts active g
   }
 })
 
-test("eligible configured accept keys survive pre-dispatch observation; other keys and paste cancel", () => {
+test("eligible configured accept keys survive pre-dispatch observation; editing keys and paste cancel", () => {
   const input = new InternalKeyHandler()
   const order: string[] = []
   let eligible = true
   input.prependListener("keypress", (event) => { order.push(keyName(event)); event.stopPropagation() })
   input.prependListener("paste", (event) => { order.push("paste"); event.stopPropagation() })
-  const off = observeComposerInput(input, (event) => eligible && ["tab", "shift+tab", "right"].includes(keyName(event)), () => { order.push("cancel") })
-  const press = (name: string, shift = false) => input.emit("keypress", new KeyEvent({ name, shift, ctrl: false, meta: false, option: false, sequence: name, raw: name, number: false }))
+  const off = observeComposerInput(input, (event) => eligible && ["tab", "shift+tab", "right", "y"].includes(keyName(event)), () => { order.push("cancel") })
+  const press = (name: string, shift = false, sequence = name) => input.emit("keypress", new KeyEvent({ name, shift, ctrl: false, meta: false, option: false, sequence, raw: sequence, number: false }))
   press("tab")
   press("tab", true)
   press("right")
-  expect(order).toEqual(["tab", "shift+tab", "right"])
+  press("y")
+  expect(order).toEqual(["tab", "shift+tab", "right", "y"])
   eligible = false
-  press("tab")
+  press("y")
+  press("a")
   input.processPaste(new TextEncoder().encode("draft"))
-  expect(order.slice(3)).toEqual(["cancel", "tab", "cancel", "paste"])
+  expect(order.slice(4)).toEqual(["cancel", "y", "cancel", "a", "cancel", "paste"])
+  off()
+})
+
+test("navigation and non-text keys leave the suggestion and generation untouched", () => {
+  const input = new InternalKeyHandler()
+  let cancelled = 0
+  const off = observeComposerInput(input, () => false, () => { cancelled++ })
+  const press = (name: string, sequence: string, mods: { ctrl?: boolean; meta?: boolean } = {}) =>
+    input.emit("keypress", new KeyEvent({ name, ctrl: !!mods.ctrl, meta: !!mods.meta, shift: false, option: false, sequence, raw: sequence, number: false }))
+  for (const [name, sequence] of [["pageup", "\u001b[5~"], ["pagedown", "\u001b[6~"], ["left", "\u001b[D"], ["up", "\u001b[A"], ["home", "\u001b[H"], ["escape", "\u001b"], ["tab", "\t"], ["f1", "\u001bOP"], ["pageup", ""]] as const) press(name, sequence)
+  press("c", "\u0003", { ctrl: true })
+  press("p", "p", { ctrl: true })
+  press("x", "x", { meta: true })
+  expect(cancelled).toBe(0)
+  for (const [name, sequence, mods] of [["a", "a", {}], ["A", "A", {}], ["é", "é", {}], ["space", " ", {}], ["return", "\r", {}], ["backspace", "\u007f", {}], ["delete", "\u001b[3~", {}], ["v", "\u0016", { ctrl: true }]] as const) press(name, sequence, mods)
+  expect(cancelled).toBe(8)
   off()
 })
 

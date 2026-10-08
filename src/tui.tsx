@@ -4,7 +4,7 @@ import { TextareaRenderable, InputRenderable, type BoxRenderable, type Renderabl
 import { createEffect, createRoot, createSignal, on, onCleanup } from "solid-js"
 import { composerAction, findComposerEditor, isEmptyComposer, keyName, observeComposerInput } from "./composer"
 import { createLifecycle } from "./lifecycle"
-import { ghostKeymapLayers } from "./keymap"
+import { acceptCommandId, acceptShortcuts, ghostKeymapLayers } from "./keymap"
 import { parseSuggestCommand, removedOptionKeys, resolveOptions, suggestionModel } from "./options"
 import { createInlinePlaceholder } from "./placeholder"
 import { generateSuggestion } from "./stateless"
@@ -153,12 +153,12 @@ export default Plugin.define({
       syncInline()
       const key = keyName(event)
       const current = suggestion()
-      return Boolean(current && inline.visible(getComposer(current.sessionID).editor, current.text) && opts.acceptKeys.includes(key) && canGenerate(current.sessionID) && isComposerEmpty(current.sessionID))
+      return Boolean(current && inline.visible(getComposer(current.sessionID).editor, current.text) && acceptShortcuts(opts.acceptKeys, context.keymap.shortcuts).has(key) && canGenerate(current.sessionID) && isComposerEmpty(current.sessionID))
     }, cancelSuggestion)
 
     const commandLayers = () => ghostKeymapLayers([
         ...opts.acceptKeys.map((key) => ({
-          id: `ghost.accept.${key}`,
+          id: acceptCommandId(key),
           bind: key,
           enabled: () => Boolean(suggestion()),
           run: () => {

@@ -1,6 +1,14 @@
 import { expect, test } from "bun:test"
-import { ghostKeymapLayers } from "../src/keymap"
+import { acceptCommandId, acceptShortcuts, ghostKeymapLayers } from "../src/keymap"
 import { parseSuggestCommand } from "../src/options"
+
+test("accept shortcuts follow rebound and unbound command bindings", () => {
+  const bindings: Record<string, string[]> = { [acceptCommandId("tab")]: ["Ctrl+Y"], [acceptCommandId("right")]: [] }
+  const keys = acceptShortcuts(["tab", "right"], (id) => bindings[id] ?? [])
+  expect([...keys].sort()).toEqual(["ctrl+y"])
+  bindings[acceptCommandId("tab")] = ["tab", "alt+enter"]
+  expect([...acceptShortcuts(["tab", "right"], (id) => bindings[id] ?? [])].sort()).toEqual(["alt+enter", "tab"])
+})
 
 test("ghostKeymapLayers configures base mode for composer and global mode for suggest", async () => {
   const composerCommands = [
