@@ -33,12 +33,16 @@ export type EditorNode = {
 }
 
 export function isEmptyComposer(editor: TextareaRenderable | undefined, focused: unknown, mode: string, normal: boolean, selected: boolean): boolean {
+  return !!editor && editor === focused && editor.focused && isEligibleComposer(editor, mode, normal, selected)
+}
+
+export function isEligibleComposer(editor: TextareaRenderable | undefined, mode: string, normal: boolean, selected: boolean): boolean {
   if (!editor?.parent || editor.parent.isDestroyed) return false
   const siblings = editor.parent.getChildren().filter((node) =>
     !(node.id.startsWith("slot-layout-") && node.getChildren().length === 0),
   )
   if (siblings.length !== 2 || siblings[0] !== editor) return false
-  return normal && mode === "base" && !selected && editor === focused && editor.focused && !editor.isDestroyed && editor.plainText === "" && !editor.hasSelection() && !editor.traits.capture?.includes("navigate") && editor.extmarks.getAll().length === 0
+  return normal && mode === "base" && !selected && !editor.isDestroyed && editor.plainText === "" && !editor.hasSelection() && !editor.traits.capture?.includes("navigate") && editor.extmarks.getAll().length === 0
 }
 
 export function findComposerEditor<T extends EditorNode>(marker: EditorNode | undefined, isEditor: (node: EditorNode) => node is T, isComposer: (editor: T) => boolean): T | undefined {

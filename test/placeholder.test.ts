@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import { BoxRenderable, RGBA, StyledText, TextareaRenderable, TextRenderable, dim } from "@opentui/core"
 import { createTestRenderer } from "@opentui/core/testing"
-import { composerAction, isEmptyComposer } from "../src/composer"
+import { composerAction, isEligibleComposer, isEmptyComposer } from "../src/composer"
 import { createInlinePlaceholder, dimPlaceholderColor } from "../src/placeholder"
 
 const muted = RGBA.fromHex("#777777")
@@ -191,6 +191,37 @@ test("the real composer gate suppresses autocomplete, attachments, selections, w
     expect(isEmptyComposer(editor, editor, "base", false, false)).toBe(false)
     editor.blur()
     expect(eligible()).toBe(false)
+  })
+})
+
+test("blur preserves the rendered ghost while acceptance requires composer focus", async () => {
+  await withEditor(async (editor, setup) => {
+    const body = new BoxRenderable(setup.renderer, { id: "body" })
+    setup.renderer.root.remove(editor)
+    setup.renderer.root.add(body)
+    body.add(editor)
+    body.add(new BoxRenderable(setup.renderer, { id: "metadata" }))
+    const inline = createInlinePlaceholder()
+    const original = editor.placeholder
+    const originalColor = editor.placeholderColor
+    const sync = () => inline.sync(editor, "Next prompt", muted, isEligibleComposer(editor, "base", true, false))
+    sync()
+    expect(inline.visible(editor, "Next prompt")).toBe(true)
+    editor.blur()
+    sync()
+    await setup.renderOnce()
+    expect(inline.visible(editor, "Next prompt")).toBe(true)
+    expect(setup.captureSpans().lines.some((line) => line.spans.some((span) => span.text.includes("Next prompt")))).toBe(true)
+    expect(isEmptyComposer(editor, setup.renderer.currentFocusedEditor, "base", true, false)).toBe(false)
+    expect(composerAction(editor, () => setup.renderer.currentFocusedEditor, "base", true, true, "Next prompt")).toBe(false)
+    expect(editor.plainText).toBe("")
+    editor.focus()
+    sync()
+    expect(isEmptyComposer(editor, setup.renderer.currentFocusedEditor, "base", true, false)).toBe(true)
+    expect(composerAction(editor, () => setup.renderer.currentFocusedEditor, "base", true, true, "Next prompt")).toBe(true)
+    inline.clear()
+    expect(editor.placeholder).toBe(original)
+    expect(editor.placeholderColor).toBe(originalColor)
   })
 })
 

@@ -2,7 +2,7 @@
 import { Plugin } from "@opencode/plugin/tui"
 import { TextareaRenderable, InputRenderable, type BoxRenderable, type Renderable } from "@opentui/core"
 import { createEffect, createMemo, createRoot, createSignal, on, onCleanup } from "solid-js"
-import { composerAction, findComposerEditor, isEmptyComposer, keyName, observeComposerInput } from "./composer"
+import { composerAction, findComposerEditor, isEligibleComposer, isEmptyComposer, keyName, observeComposerInput } from "./composer"
 import { createLifecycle } from "./lifecycle"
 import { acceptCommand, acceptShortcuts, ghostKeymapLayers } from "./keymap"
 import { parseSuggestCommand, removedOptionKeys, resolveOptions, suggestionModel } from "./options"
@@ -118,8 +118,8 @@ export default Plugin.define({
     const syncInline = () => {
       composerRevision()
       const current = suggestion()
-      const editor = current ? getComposer(current.sessionID).editor : undefined
-      inline.sync(editor, current?.text, ghostColor(), !!current && canGenerate(current.sessionID) && isComposerEmpty(current.sessionID))
+      const { editor, normal } = current ? getComposer(current.sessionID) : { editor: undefined, normal: false }
+      inline.sync(editor, current?.text, ghostColor(), !!current && canGenerate(current.sessionID) && isEligibleComposer(editor, context.keymap.mode.current(), normal, context.renderer.hasSelection))
     }
 
     const disposeRouteWatcher = createRoot((dispose) => {
