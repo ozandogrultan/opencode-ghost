@@ -32,7 +32,7 @@ test("runtime model override survives serialization and clear falls back to opti
 const location = { directory: "/project" }
 const signal = () => new AbortController().signal
 const title = (overrides: Partial<AgentInfo> = {}): AgentInfo =>
-  ({ id: "title", name: "Title", mode: "primary", hidden: true, request: { headers: {}, body: {} }, permissions: [], ...overrides })
+  ({ id: "title", name: "Title", mode: "primary", hidden: true, request: { settings: {}, headers: {}, body: {} }, permissions: [], ...overrides })
 const model = (overrides: Partial<ModelInfo> = {}): ModelInfo => ({
   id: "actual-small-id", modelID: "upstream-id", providerID: "primary", family: "gpt-luna", name: "small",
   capabilities: { tools: false, input: ["text"], output: ["text"] }, variants: [], time: { released: 0 },

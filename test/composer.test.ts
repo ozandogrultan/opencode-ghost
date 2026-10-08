@@ -19,7 +19,7 @@ test("input cancellation runs before consuming keymap listeners, aborts active g
     visible = true
     input.prependListener("keypress", (event) => { order.push("keymap"); event.preventDefault(); event.stopPropagation() })
     const off = observeComposerInput(input, () => false, () => { order.push("cancel"); lifecycle.cancel() })
-    input.emit("keypress", new KeyEvent({ name, ctrl: name === "v", meta: false, shift: false, option: false, sequence: name, raw: name, number: false }))
+    input.emit("keypress", new KeyEvent({ name, ctrl: name === "v", meta: false, shift: false, option: false, sequence: name, raw: name, number: false, eventType: "press", source: "raw" }))
     expect(order).toEqual(["cancel", "keymap"])
     expect(signal?.aborted).toBe(true)
     expect(visible).toBe(false)
@@ -40,7 +40,7 @@ test("eligible configured accept keys survive pre-dispatch observation; editing 
   input.prependListener("keypress", (event) => { order.push(keyName(event)); event.stopPropagation() })
   input.prependListener("paste", (event) => { order.push("paste"); event.stopPropagation() })
   const off = observeComposerInput(input, (event) => eligible && ["tab", "shift+tab", "right", "y"].includes(keyName(event)), () => { order.push("cancel") })
-  const press = (name: string, shift = false, sequence = name) => input.emit("keypress", new KeyEvent({ name, shift, ctrl: false, meta: false, option: false, sequence, raw: sequence, number: false }))
+  const press = (name: string, shift = false, sequence = name) => input.emit("keypress", new KeyEvent({ name, shift, ctrl: false, meta: false, option: false, sequence, raw: sequence, number: false, eventType: "press", source: "raw" }))
   press("tab")
   press("tab", true)
   press("right")
@@ -59,7 +59,7 @@ test("navigation and non-text keys leave the suggestion and generation untouched
   let cancelled = 0
   const off = observeComposerInput(input, () => false, () => { cancelled++ })
   const press = (name: string, sequence: string, mods: { ctrl?: boolean; meta?: boolean } = {}) =>
-    input.emit("keypress", new KeyEvent({ name, ctrl: !!mods.ctrl, meta: !!mods.meta, shift: false, option: false, sequence, raw: sequence, number: false }))
+    input.emit("keypress", new KeyEvent({ name, ctrl: !!mods.ctrl, meta: !!mods.meta, shift: false, option: false, sequence, raw: sequence, number: false, eventType: "press", source: "raw" }))
   for (const [name, sequence] of [["pageup", "\u001b[5~"], ["pagedown", "\u001b[6~"], ["left", "\u001b[D"], ["up", "\u001b[A"], ["home", "\u001b[H"], ["escape", "\u001b"], ["tab", "\t"], ["f1", "\u001bOP"], ["pageup", ""]] as const) press(name, sequence)
   press("c", "\u0003", { ctrl: true })
   press("p", "p", { ctrl: true })

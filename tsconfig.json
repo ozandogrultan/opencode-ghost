@@ -6,13 +6,13 @@
     "moduleResolution": "bundler",
     "jsx": "preserve",
     "jsxImportSource": "@opentui/solid",
-    "types": ["node"],
+    "types": ["node", "bun"],
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
     "verbatimModuleSyntax": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "test"]
+  "include": ["src", "test"],
+  "exclude": ["node_modules"]
 }
