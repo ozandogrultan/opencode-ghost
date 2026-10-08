@@ -2,6 +2,19 @@ import { describe, expect, test } from "bun:test"
 import { DEFAULT_SYSTEM, removedOptionKeys, resolveOptions } from "../src/options"
 
 describe("resolveOptions", () => {
+  test("booleans reject truthy and falsy nonboolean values", () => {
+    for (const value of ["false", "true", 0, 1, null, [], {}]) {
+      const opts = resolveOptions({ enabled: value, backOnEmptyLeft: value })
+      expect(opts.enabled).toBe(true)
+      expect(opts.backOnEmptyLeft).toBe(true)
+    }
+  })
+
+  test("accept keys fall back when invalid and deduplicate canonical bindings", () => {
+    expect(resolveOptions({ acceptKeys: [null, 1, "", " ", "ctrl+"] }).acceptKeys).toEqual(["tab", "right"])
+    expect(resolveOptions({ acceptKeys: ["Tab", " tab ", "SHIFT+Tab", "shift+tab", null] }).acceptKeys).toEqual(["tab", "shift+tab"])
+  })
+
   test("applies defaults", () => {
     const opts = resolveOptions(undefined)
     expect(opts.enabled).toBe(true)

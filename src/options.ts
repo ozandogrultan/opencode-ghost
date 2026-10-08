@@ -66,14 +66,14 @@ export function resolveOptions(options: Readonly<Record<string, unknown>> | unde
   const maxChars = input.maxChars
   const idleDelayMs = input.idleDelayMs
   const recentMessages = input.recentMessages
+  const acceptKeys = Array.isArray(input.acceptKeys)
+    ? [...new Set(input.acceptKeys.filter((key) => typeof key === "string" && key.trim() && key.trim().split("+").every((part) => part.trim())).map(canonicalKey))]
+    : []
   return {
-    enabled: input.enabled ?? DEFAULTS.enabled,
+    enabled: typeof input.enabled === "boolean" ? input.enabled : DEFAULTS.enabled,
     model: typeof input.model === "string" && input.model.trim() ? input.model.trim() : undefined,
-    acceptKeys:
-      Array.isArray(input.acceptKeys) && input.acceptKeys.length > 0
-        ? input.acceptKeys.filter((key) => typeof key === "string" && key.trim()).map(canonicalKey)
-        : [...DEFAULTS.acceptKeys],
-    backOnEmptyLeft: input.backOnEmptyLeft ?? DEFAULTS.backOnEmptyLeft,
+    acceptKeys: acceptKeys.length > 0 ? acceptKeys : [...DEFAULTS.acceptKeys],
+    backOnEmptyLeft: typeof input.backOnEmptyLeft === "boolean" ? input.backOnEmptyLeft : DEFAULTS.backOnEmptyLeft,
     maxChars: typeof maxChars === "number" && maxChars > 0 ? maxChars : DEFAULTS.maxChars,
     idleDelayMs:
       typeof idleDelayMs === "number" && idleDelayMs >= 0 ? idleDelayMs : DEFAULTS.idleDelayMs,
