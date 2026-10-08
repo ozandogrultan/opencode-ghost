@@ -3,6 +3,8 @@ import { BoxRenderable, RGBA, StyledText, TextareaRenderable, TextRenderable, di
 import { createTestRenderer } from "@opentui/core/testing"
 import { composerAction, isEligibleComposer, isEmptyComposer } from "../src/composer"
 import { createInlinePlaceholder, dimPlaceholderColor } from "../src/placeholder"
+import { createLifecycle } from "../src/lifecycle"
+import { generateSuggestion } from "../src/stateless"
 
 const muted = RGBA.fromHex("#777777")
 
@@ -222,6 +224,63 @@ test("blur preserves the rendered ghost while acceptance requires composer focus
     inline.clear()
     expect(editor.placeholder).toBe(original)
     expect(editor.placeholderColor).toBe(originalColor)
+  })
+})
+
+test("typing then deleting restores the original ghost without another generation", async () => {
+  await withEditor(async (editor, setup) => {
+    const body = new BoxRenderable(setup.renderer, { id: "body" })
+    setup.renderer.root.remove(editor)
+    setup.renderer.root.add(body)
+    body.add(editor)
+    body.add(new BoxRenderable(setup.renderer, { id: "metadata" }))
+    const inline = createInlinePlaceholder()
+    let suggestion: { sessionID: string; text: string } | undefined
+    let calls = 0
+    let sessionID = "first"
+    const client = { generate: { text: async () => { calls++; return { text: "Original suggestion" } } } }
+    const lifecycle = createLifecycle(0, (id) => id === sessionID, async (id, signal) => {
+      const text = await generateSuggestion(client, "Prompt", { providerID: "fake", modelID: "small" }, signal)
+      if (text && !signal.aborted) suggestion = { sessionID: id, text }
+    }, () => { inline.clear(); suggestion = undefined })
+    const sync = () => inline.sync(editor, suggestion?.text, muted, suggestion?.sessionID === sessionID && isEligibleComposer(editor, "base", true, false))
+    try {
+      await lifecycle.run(sessionID)
+      sync()
+      expect(inline.visible(editor, "Original suggestion")).toBe(true)
+      lifecycle.interrupt()
+      inline.clear()
+      editor.insertText("Temporary input")
+      sync()
+      expect(inline.visible(editor, "Original suggestion")).toBe(false)
+      editor.clear()
+      sync()
+      await setup.renderOnce()
+      expect(inline.visible(editor, "Original suggestion")).toBe(true)
+      expect(calls).toBe(1)
+      editor.blur()
+      sync()
+      editor.focus()
+      sync()
+      expect(calls).toBe(1)
+      expect(composerAction(editor, () => setup.renderer.currentFocusedEditor, "base", true, true, suggestion?.text)).toBe(true)
+      inline.clear()
+      suggestion = undefined
+      editor.clear()
+      sync()
+      expect(inline.visible(editor, "Original suggestion")).toBe(false)
+      await lifecycle.run(sessionID)
+      sync()
+      expect(inline.visible(editor, "Original suggestion")).toBe(true)
+      sessionID = "second"
+      lifecycle.cancel()
+      sync()
+      expect(suggestion).toBeUndefined()
+      expect(inline.visible(editor, "Original suggestion")).toBe(false)
+      expect(calls).toBe(2)
+    } finally {
+      lifecycle.dispose()
+    }
   })
 })
 

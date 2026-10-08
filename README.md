@@ -17,11 +17,14 @@ a dimmed inline placeholder in the empty composer with
   short transcript of the recent turns, and asks a model for one line that
   sounds like you.
 - **Inline empty-composer ghost.** The suggestion renders as the textarea's
-  dimmed placeholder only while the normal composer is empty and focused in an
-  idle session. `Tab` or `→` inserts it as editable text; Enter does not accept
+  dimmed placeholder while the normal composer is empty in an idle session,
+  including when unfocused. With the composer focused, `Tab` or `→` inserts it
+  as editable text; Enter does not accept
   or submit the ghost. Acceptance never replaces a draft or touches the clipboard.
-- **Clears as you type.** Text-editing keys and pasting dismiss the suggestion;
-  navigation keys leave it intact. Left on an empty eligible composer returns
+- **Hides as you type.** Typing and pasting abort pending generation and hide the
+  preview. Emptying the composer restores the same suggestion without another
+  API call; focus changes also reuse it. Navigation keys leave it intact.
+  Left on an empty eligible focused composer returns
   home, even when suggestions are off (`backOnEmptyLeft`).
 - **`/suggest` toggles it.** State is stored durably via the plugin's storage.
 
@@ -137,6 +140,9 @@ When enabling, a suggestion is generated immediately for the current session.
 - Accepting uses the composer editor's `insertText` directly, without submitting.
 - Typing, pasting, navigation, a new execution, disabling and unloading cancel
   pending generation. Duplicate completion events do not generate again.
+- Retains only one suggestion, bounded by `maxChars`, for the visible session.
+  Acceptance, a new turn, session changes, disabling, model changes and unloading
+  discard it.
 
 ## Caveats
 

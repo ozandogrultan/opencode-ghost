@@ -4,13 +4,13 @@ export function createLifecycle(delay: number, allowed: (sessionID: string) => b
   let disposed = false
   let warned = false
   const completed = new Set<string>()
-  const cancel = () => {
+  const interrupt = () => {
     clearTimeout(timer)
     timer = undefined
     controller?.abort()
     controller = undefined
-    clear()
   }
+  const cancel = () => { interrupt(); clear() }
   const run = async (sessionID: string) => {
     cancel()
     if (disposed || !allowed(sessionID)) return
@@ -23,6 +23,7 @@ export function createLifecycle(delay: number, allowed: (sessionID: string) => b
     }
   }
   return {
+    interrupt,
     cancel,
     run,
     succeeded(id: string, sessionID: string) {

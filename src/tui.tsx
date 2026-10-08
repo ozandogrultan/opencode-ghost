@@ -154,7 +154,7 @@ export default Plugin.define({
       const key = keyName(event)
       const current = suggestion()
       return Boolean(current && inline.visible(getComposer(current.sessionID).editor, current.text) && acceptShortcuts(opts.acceptKeys, context.keymap.shortcuts).has(key) && canGenerate(current.sessionID) && isComposerEmpty(current.sessionID))
-    }, cancelSuggestion)
+    }, () => { lifecycle.interrupt(); inline.clear() })
 
     const commandLayers = () => ghostKeymapLayers([
         ...opts.acceptKeys.map((key) => acceptCommand(key, () => {

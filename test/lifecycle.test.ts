@@ -28,6 +28,24 @@ test("completion dedupe includes out-of-order repeats and ignores other sessions
   lifecycle.dispose()
 })
 
+test("finished events coalesce and repeated completion IDs do not generate again", async () => {
+  let calls = 0
+  const lifecycle = createLifecycle(10, () => true, async () => { calls++ }, () => {})
+  try {
+    lifecycle.succeeded("first", "session")
+    lifecycle.succeeded("second", "session")
+    lifecycle.succeeded("second", "session")
+    await Bun.sleep(20)
+    expect(calls).toBe(1)
+    lifecycle.succeeded("first", "session")
+    lifecycle.succeeded("second", "session")
+    await Bun.sleep(20)
+    expect(calls).toBe(1)
+  } finally {
+    lifecycle.dispose()
+  }
+})
+
 test("cancel invalidates late responses and new completion aborts old work", async () => {
   const pending: Array<{ signal: AbortSignal; finish: () => void }> = []
   const visible: string[] = []
@@ -77,6 +95,33 @@ test("navigation, typing, disable, start and unload share cancellation for pendi
   lifecycle.succeeded("after", "session")
   await Bun.sleep(20)
   expect(calls).toBe(1)
+})
+
+test("input interruption aborts active and pending work without clearing a retained suggestion", async () => {
+  let clears = 0
+  let calls = 0
+  let signal: AbortSignal | undefined
+  let finish: (() => void) | undefined
+  const lifecycle = createLifecycle(10, () => true, async (_id, current) => {
+    calls++
+    signal = current
+    await new Promise<void>((resolve) => { finish = resolve })
+  }, () => { clears++ })
+  lifecycle.succeeded("pending", "session")
+  lifecycle.interrupt()
+  await Bun.sleep(20)
+  expect(calls).toBe(0)
+  expect(clears).toBe(1)
+  const active = lifecycle.run("session")
+  expect(clears).toBe(2)
+  lifecycle.interrupt()
+  expect(signal?.aborted).toBe(true)
+  expect(clears).toBe(2)
+  finish?.()
+  await active
+  expect(calls).toBe(1)
+  lifecycle.dispose()
+  expect(clears).toBe(3)
 })
 
 test("warning is shown only once per load and never after unload", () => {

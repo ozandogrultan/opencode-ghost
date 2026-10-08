@@ -63,7 +63,13 @@ bun run lint:sh     # bash -n on the scripts
   the public pre-render callback, preserving host updates and rich placeholders.
   Restore only owned values on dismissal/replacement/unload; skip destroyed editors.
 - **No inline typing ghosts.** Only an empty eligible composer displays a
-  next-prompt placeholder. Acceptance inserts editable text and never submits it.
+  next-prompt placeholder, including when unfocused. Acceptance requires focus,
+  inserts editable text and never submits it.
+- **Retain only one suggestion.** Typing/pasting aborts pending generation and
+  hides the preview without discarding the completed suggestion. Emptying the
+  composer restores it without generation; focus changes never generate.
+  Acceptance, new turns, session changes, disabling, model changes and unload
+  clear the retained value. Keep text bounded by `maxChars` and no session history.
 
 ## Verifying
 
