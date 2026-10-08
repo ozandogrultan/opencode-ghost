@@ -13,6 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.0] - 2026-10-08
 
+### Added
+
+- `/suggest model provider/model` and `/suggest model clear` for persistent model overrides.
+- Effective title-agent model resolution and same-provider small-model selection.
+
+### Changed
+
+- Register TUI plugins by directory in `cli.json` instead of `tui.json`.
+
+### Removed
+
+- V1 inline typing ghosts and slash-command argument hints.
+- The `endpoint`, `apiKey`, `internalSessionMarkerDir`, and `argHints` options.
+
 ### Breaking changes
 
 - Migrate inline prompt ghosts to opencode v2 _(breaking)_

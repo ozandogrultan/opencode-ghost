@@ -20,8 +20,9 @@ a dimmed inline placeholder in the empty composer with
   dimmed placeholder only while the normal composer is empty and focused in an
   idle session. `Tab` or `→` inserts it as editable text; Enter does not accept
   or submit the ghost. Acceptance never replaces a draft or touches the clipboard.
-- **Clears as you type.** Typing anything other than an accept key dismisses
-  the suggestion.
+- **Clears as you type.** Text-editing keys and pasting dismiss the suggestion;
+  navigation keys leave it intact. Left on an empty eligible composer returns
+  home, even when suggestions are off (`backOnEmptyLeft`).
 - **`/suggest` toggles it.** State is stored durably via the plugin's storage.
 
 ## Requirements
@@ -106,14 +107,17 @@ and directory definitions such as `agents/title.md` and `agent/title.md`, includ
 agent deletion/recreation. Explicitly configured variants are preserved.
 Without a configured title model, or when the title agent is disabled, Ghost
 mirrors OpenCode 2.0.25's internal small-model policy until a public API exists:
-within the session model's provider (or the location's default provider, or the
-first enabled text model's provider when no default exists), choose
+within the session model's provider (or the session agent model's provider,
+then the location's default provider, then the first enabled text model's
+provider when no default exists), choose
 the first enabled, active text-input/text-output catalog model in family order
 `gpt-luna`, `gemini-flash-lite`, `gemini-flash`, `claude-haiku`.
 Like OpenCode's title generation, an override, title or small model without a
 configured variant uses its first supported `none`, `minimal` or `low` variant.
 Catalog IDs are used directly. No matching small model means a warning and no
-suggestion; Ghost never falls back to the main model or another provider.
+suggestion. Ghost never uses the main model as a generation fallback or retries
+with another provider. An explicit override or configured title model may use
+a different provider from the session's primary model.
 
 When enabling, a suggestion is generated immediately for the current session.
 
@@ -170,7 +174,7 @@ When enabling, a suggestion is generated immediately for the current session.
 ```sh
 bun install
 bun run typecheck
-bun test
+bun run test
 ```
 
 No build step: like other opencode TUI plugins, the package ships TSX source and

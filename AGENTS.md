@@ -14,9 +14,9 @@ behaviour.
   `session.execution.succeeded` hook, generation, the footer marker, and
   the accept keymap.
 - `src/options.ts`, `src/text.ts`, `src/transcript.ts`, `src/stateless.ts`,
-  `src/composer.ts`, `src/lifecycle.ts`, `src/placeholder.ts` —
-  pure helpers (option parsing/validation, text normalization, transcript
-  building, the `generate.text` call).
+  `src/composer.ts`, `src/lifecycle.ts`, `src/placeholder.ts`, `src/keymap.ts` —
+  helpers (option parsing/validation, text normalization and model resolution
+  in `src/text.ts`, transcript building, the `generate.text` call, keymap layers).
 - `test/` — bun tests (`bun test`).
 - `tests/changelog.sh`, `scripts/changelog.sh` — release bookkeeping.
 - `install.sh` — copies the plugin into opencode's config and registers it in
@@ -56,7 +56,8 @@ bun run lint:sh     # bash -n on the scripts
 - **Every generation is cancellable.** A debounced `AbortController` run backs
   each suggestion; it is aborted when a newer turn finishes, the visible
   session changes, typing/pasting occurs, execution starts, suggestions are
-  disabled, or the plugin unloads. Deduplicate completion IDs across the load.
+  disabled, or the plugin unloads. Deduplicate the most recent 1,024 completion
+  IDs across the load.
 - **Own only the placeholder.** Use the textarea's public placeholder/color
   setters, never its buffer, for display. Synchronize through Solid effects and
   the public pre-render callback, preserving host updates and rich placeholders.
