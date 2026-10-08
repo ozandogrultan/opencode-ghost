@@ -1,5 +1,18 @@
 import { expect, test } from "bun:test"
-import { createLifecycle } from "../src/lifecycle"
+import { COMPLETION_HISTORY_LIMIT, createLifecycle } from "../src/lifecycle"
+
+test("completion history retains recent IDs and evicts the oldest at the cap", async () => {
+  let clears = 0
+  const lifecycle = createLifecycle(0, () => true, async () => {}, () => { clears++ })
+  for (let i = 0; i <= COMPLETION_HISTORY_LIMIT; i++) lifecycle.succeeded(String(i), "current")
+  expect(clears).toBe(COMPLETION_HISTORY_LIMIT + 1)
+  lifecycle.succeeded("1", "current")
+  lifecycle.succeeded(String(COMPLETION_HISTORY_LIMIT), "current")
+  expect(clears).toBe(COMPLETION_HISTORY_LIMIT + 1)
+  lifecycle.succeeded("0", "current")
+  expect(clears).toBe(COMPLETION_HISTORY_LIMIT + 2)
+  lifecycle.dispose()
+})
 
 test("completion dedupe includes out-of-order repeats and ignores other sessions", async () => {
   const calls: string[] = []

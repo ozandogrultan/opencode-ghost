@@ -28,6 +28,7 @@ export function createLifecycle(delay: number, allowed: (sessionID: string) => b
     succeeded(id: string, sessionID: string) {
       if (disposed || !allowed(sessionID) || completed.has(id)) return
       completed.add(id)
+      if (completed.size > COMPLETION_HISTORY_LIMIT) completed.delete(completed.values().next().value!)
       cancel()
       timer = setTimeout(() => { timer = undefined; void run(sessionID) }, delay)
     },
@@ -39,3 +40,4 @@ export function createLifecycle(delay: number, allowed: (sessionID: string) => b
     dispose() { disposed = true; cancel() },
   }
 }
+export const COMPLETION_HISTORY_LIMIT = 1024
