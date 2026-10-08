@@ -1,6 +1,26 @@
 import { expect, test } from "bun:test"
-import { acceptCommandId, acceptShortcuts, ghostKeymapLayers } from "../src/keymap"
+import { acceptCommand, acceptCommandId, acceptShortcuts, ghostKeymapLayers } from "../src/keymap"
 import { parseSuggestCommand } from "../src/options"
+
+test("accept command returns false to the host for missing, mismatched or ineligible composers", () => {
+  let route: string | undefined
+  let suggestion: string | undefined = "current"
+  let eligible = false
+  const calls: string[] = []
+  const command = acceptCommand("shift+tab", () => route, () => suggestion, (id) => { calls.push(id); return eligible })
+  expect(command.run()).toBe(false)
+  route = "other"
+  expect(command.run()).toBe(false)
+  route = "current"
+  suggestion = undefined
+  expect(command.run()).toBe(false)
+  expect(calls).toEqual([])
+  suggestion = "current"
+  expect(command.run()).toBe(false)
+  eligible = true
+  expect(command.run()).toBeUndefined()
+  expect(calls).toEqual(["current", "current"])
+})
 
 test("accept shortcuts follow rebound and unbound command bindings", () => {
   const bindings: Record<string, string[]> = { [acceptCommandId("tab")]: ["Ctrl+Y"], [acceptCommandId("right")]: [] }

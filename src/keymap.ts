@@ -3,6 +3,18 @@ import { canonicalKey } from "./composer"
 
 export const acceptCommandId = (key: string) => `ghost.accept.${key}`
 
+export function acceptCommand(key: string, session: () => string | undefined, suggestionSession: () => string | undefined, act: (sessionID: string) => boolean): KeymapCommand {
+  return {
+    id: acceptCommandId(key),
+    bind: key,
+    enabled: () => Boolean(suggestionSession()),
+    run: () => {
+      const sessionID = session()
+      if (!sessionID || suggestionSession() !== sessionID || !act(sessionID)) return false
+    },
+  }
+}
+
 export function acceptShortcuts(acceptKeys: readonly string[], shortcuts: (id: string) => readonly string[]): Set<string> {
   return new Set(acceptKeys.flatMap((key) => {
     const bound = shortcuts(acceptCommandId(key))

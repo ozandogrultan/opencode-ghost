@@ -4,7 +4,7 @@ import { TextareaRenderable, InputRenderable, type BoxRenderable, type Renderabl
 import { createEffect, createRoot, createSignal, on, onCleanup } from "solid-js"
 import { composerAction, findComposerEditor, isEmptyComposer, keyName, observeComposerInput } from "./composer"
 import { createLifecycle } from "./lifecycle"
-import { acceptCommandId, acceptShortcuts, ghostKeymapLayers } from "./keymap"
+import { acceptCommand, acceptShortcuts, ghostKeymapLayers } from "./keymap"
 import { parseSuggestCommand, removedOptionKeys, resolveOptions, suggestionModel } from "./options"
 import { createInlinePlaceholder } from "./placeholder"
 import { generateSuggestion } from "./stateless"
@@ -75,10 +75,9 @@ export default Plugin.define({
         const location = session?.location ?? context.location ?? context.data.location.default()
         const explicit = suggestionModel(state.model, opts.model)
         const model = explicit
-          ? await resolveExplicitModel(context.client, location, signal, explicit)
-          : await resolveSmallModel(context.client, location, signal, session)
-        if (signal.aborted || !canGenerate(sessionID) || !model) return
-        const raw = await generateSuggestion(context.client, suggestionPrompt(opts.system, transcript), model, signal, warnGeneration)
+          ? resolveExplicitModel(context.client, location, signal, explicit)
+          : resolveSmallModel(context.client, location, signal, session)
+        const raw = await generateSuggestion(context.client, suggestionPrompt(opts.system, transcript), model, signal, warnGeneration, () => canGenerate(sessionID))
         if (signal.aborted || !raw) return
         const clean = normalize(raw, opts.maxChars)
         if (!clean) return
@@ -157,18 +156,10 @@ export default Plugin.define({
     }, cancelSuggestion)
 
     const commandLayers = () => ghostKeymapLayers([
-        ...opts.acceptKeys.map((key) => ({
-          id: acceptCommandId(key),
-          bind: key,
-          enabled: () => Boolean(suggestion()),
-          run: () => {
-            const route = context.ui.router.current()
-            if (route.type !== "session") return false
-            const current = suggestion()
-            if (!current || current.sessionID !== route.sessionID) return false
-            if (!act(route.sessionID)) return false
-          },
-        })),
+        ...opts.acceptKeys.map((key) => acceptCommand(key, () => {
+             const route = context.ui.router.current()
+             return route.type === "session" ? route.sessionID : undefined
+           }, () => suggestion()?.sessionID, act)),
         {
           id: "ghost.home",
           bind: "left",
