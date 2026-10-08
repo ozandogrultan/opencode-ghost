@@ -8,7 +8,7 @@ import { ghostKeymapLayers } from "./keymap"
 import { parseSuggestCommand, removedOptionKeys, resolveOptions, suggestionModel } from "./options"
 import { createInlinePlaceholder } from "./placeholder"
 import { generateSuggestion } from "./stateless"
-import { isEcho, normalize, resolveSmallModel } from "./text"
+import { isEcho, normalize, resolveExplicitModel, resolveSmallModel } from "./text"
 import { buildTranscript, lastUserText, suggestionPrompt, type TranscriptMessage } from "./transcript"
 
 type Suggestion = { sessionID: string; text: string }
@@ -73,8 +73,10 @@ export default Plugin.define({
         if (!transcript) return
         const session = context.data.session.get(sessionID)
         const location = session?.location ?? context.location ?? context.data.location.default()
-        const model = suggestionModel(state.model, opts.model) ??
-          await resolveSmallModel(context.client, location, signal, session?.model?.providerID)
+        const explicit = suggestionModel(state.model, opts.model)
+        const model = explicit
+          ? await resolveExplicitModel(context.client, location, signal, explicit)
+          : await resolveSmallModel(context.client, location, signal, session?.model?.providerID)
         if (signal.aborted || !canGenerate(sessionID) || !model) return
         const raw = await generateSuggestion(context.client, suggestionPrompt(opts.system, transcript), model, signal, warnGeneration)
         if (signal.aborted || !raw) return

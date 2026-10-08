@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import { parseSuggestCommand, suggestionModel } from "../src/options"
 import type { AgentInfo, ModelInfo } from "@opencode/client"
-import { NO_SMALL_MODEL, resolveSmallModel, selectSmallModel, type SmallModelClient } from "../src/text"
+import { NO_SMALL_MODEL, resolveExplicitModel, resolveSmallModel, selectSmallModel, type SmallModelClient } from "../src/text"
 import { generateSuggestion } from "../src/stateless"
 import { createLifecycle } from "../src/lifecycle"
 
@@ -60,7 +60,7 @@ test("effective hidden title model retains provider, catalog ID and variant", as
 test("server-resolved directory title override is used without parsing configuration", async () => {
   const { api, calls } = client([title({ model: { providerID: "directory", id: "override" } })])
   expect(await resolveSmallModel(api, location, signal())).toEqual({ providerID: "directory", modelID: "override" })
-  expect(calls).toEqual(["agents"])
+  expect(calls).toEqual(["agents", "list"])
 })
 
 test("invalid explicit references warn rather than falling through to another model", () => {
@@ -75,7 +75,7 @@ test("runtime and option overrides bypass agents and catalog; clearing resolves 
   expect(await resolve(undefined, "option/model")).toEqual({ providerID: "option", modelID: "model" })
   expect(calls).toEqual([])
   expect(await resolve()).toEqual({ providerID: "configured", modelID: "small" })
-  expect(calls).toEqual(["agents"])
+  expect(calls).toEqual(["agents", "list"])
 })
 
 test("family preference uses actual catalog IDs and keeps catalog order within a family", () => {
@@ -101,6 +101,30 @@ test("default provider is only a provider anchor, never a fallback generation mo
   expect(calls).toEqual(["agents", "default", "list"])
   const missing = client([], [model({ id: "main", family: "main" }), model({ providerID: "other" })])
   await expect(resolveSmallModel(missing.api, location, signal())).rejects.toThrow(NO_SMALL_MODEL)
+})
+
+test("small and variantless title models use the first supported low-effort variant", async () => {
+  const variants = (...ids: string[]) => ids.map((id) => ({ id }))
+  const small = client([], [model({ variants: variants("high", "low", "minimal") })])
+  expect(await resolveSmallModel(small.api, location, signal())).toEqual({ providerID: "primary", modelID: "actual-small-id", variant: "minimal" })
+  const titled = client([title({ model: { providerID: "vertex", id: "flash" } })], [model({ providerID: "vertex", id: "flash", variants: variants("none") })])
+  expect(await resolveSmallModel(titled.api, location, signal())).toEqual({ providerID: "vertex", modelID: "flash", variant: "none" })
+  const unsupported = client([], [model({ variants: variants("high") })])
+  expect(await resolveSmallModel(unsupported.api, location, signal())).toEqual({ providerID: "primary", modelID: "actual-small-id" })
+})
+
+test("explicit overrides gain a supported low-effort variant without reselecting the model", async () => {
+  const { api, calls } = client([], [model({ providerID: "google-vertex", id: "gemini-3.8-flash", family: "gemini-flash", variants: [{ id: "low" }, { id: "high" }] })])
+  expect(await resolveExplicitModel(api, location, signal(), { providerID: "google-vertex", modelID: "gemini-3.8-flash" })).toEqual({ providerID: "google-vertex", modelID: "gemini-3.8-flash", variant: "low" })
+  expect(await resolveExplicitModel(api, location, signal(), { providerID: "other", modelID: "unknown" })).toEqual({ providerID: "other", modelID: "unknown" })
+  expect(calls).toEqual(["list", "list"])
+})
+
+test("missing default model anchors on the first enabled text model provider", async () => {
+  const { api, calls } = client([], [model({ providerID: "off", enabled: false }), model({ providerID: "image", family: "main", capabilities: { tools: false, input: ["image"], output: ["image"] } }), model({ providerID: "first", family: "main" }), model({ providerID: "first", id: "small" })])
+  api.model.default = async () => { calls.push("default"); return { location, data: null } }
+  expect(await resolveSmallModel(api, location, signal())).toEqual({ providerID: "first", modelID: "small" })
+  expect(calls).toEqual(["agents", "default", "list"])
 })
 
 test("missing, builtin and recreated model-less title use small selector within session provider", async () => {
@@ -172,7 +196,7 @@ test("provider generation failure warns without retrying or switching provider",
   const requests: unknown[] = []
   const warnings: unknown[] = []
   await generateSuggestion({ generate: { text: async (input) => { requests.push(input); throw new Error("OAuth unsupported") } } }, "prompt", selected, signal(), (error) => warnings.push(error))
-  expect(calls).toEqual(["agents"])
+  expect(calls).toEqual(["agents", "list"])
   expect(requests).toEqual([{ prompt: "prompt", model: { providerID: "anthropic", id: "haiku" } }])
   expect(warnings).toHaveLength(1)
 })

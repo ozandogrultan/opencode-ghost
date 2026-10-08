@@ -30,18 +30,48 @@ export async function resolveSmallModel(
   const agents = await client.agent.list({ location }, { signal })
   if (signal.aborted) return undefined
   const configured = agents.data.find((agent) => agent.id === "title")?.model
-  if (configured) return { providerID: configured.providerID, modelID: configured.id, ...(configured.variant ? { variant: configured.variant } : {}) }
-  if (!providerID) {
+  if (configured?.variant) return { providerID: configured.providerID, modelID: configured.id, variant: configured.variant }
+  if (!configured && !providerID) {
     const primary = await client.model.default({ location }, { signal })
     if (signal.aborted) return undefined
     providerID = primary.data?.providerID
   }
-  if (!providerID) throw new Error(NO_SMALL_MODEL)
   const catalog = await client.model.list({ location }, { signal })
   if (signal.aborted) return undefined
+  if (configured) {
+    const info = catalog.data.find((model) => model.providerID === configured.providerID && model.id === configured.id)
+    return withLowEffortVariant({ providerID: configured.providerID, modelID: configured.id }, info)
+  }
+  providerID ??= catalog.data.find((model) => model.enabled && isTextModel(model))?.providerID
+  if (!providerID) throw new Error(NO_SMALL_MODEL)
   const model = selectSmallModel(catalog.data, providerID)
   if (!model) throw new Error(NO_SMALL_MODEL)
-  return model
+  return withLowEffortVariant(model, catalog.data.find((info) => info.providerID === model.providerID && info.id === model.modelID))
+}
+
+export async function resolveExplicitModel(
+  client: Pick<SmallModelClient, "model">,
+  location: LocationRef,
+  signal: AbortSignal,
+  model: SuggestionModel,
+): Promise<SuggestionModel | undefined> {
+  if (signal.aborted) return undefined
+  if (model.variant) return model
+  const catalog = await client.model.list({ location }, { signal })
+  if (signal.aborted) return undefined
+  return withLowEffortVariant(model, catalog.data.find((info) => info.providerID === model.providerID && info.id === model.modelID))
+}
+
+const LOW_EFFORT_VARIANTS = ["none", "minimal", "low"]
+
+function withLowEffortVariant(model: SuggestionModel, info: ModelInfo | undefined): SuggestionModel {
+  const variant = LOW_EFFORT_VARIANTS.find((id) => info?.variants.some((item) => item.id === id))
+  return variant ? { ...model, variant } : model
+}
+
+function isTextModel(model: ModelInfo) {
+  const text = (items: readonly string[]) => items.length === 0 || items.some((item) => item.startsWith("text"))
+  return text(model.capabilities.input) && text(model.capabilities.output)
 }
 
 export function parseModel(spec: string | undefined): { providerID: string; modelID: string } | undefined {
