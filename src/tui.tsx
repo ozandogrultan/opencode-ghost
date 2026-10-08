@@ -4,6 +4,7 @@ import { TextareaRenderable, InputRenderable, type BoxRenderable, type Renderabl
 import { createEffect, createRoot, createSignal, on, onCleanup } from "solid-js"
 import { composerAction, findComposerEditor, isEmptyComposer, keyName, observeComposerInput } from "./composer"
 import { createLifecycle } from "./lifecycle"
+import { ghostKeymapLayers } from "./keymap"
 import { parseSuggestCommand, removedOptionKeys, resolveOptions, suggestionModel } from "./options"
 import { createInlinePlaceholder } from "./placeholder"
 import { generateSuggestion } from "./stateless"
@@ -153,10 +154,7 @@ export default Plugin.define({
       return Boolean(current && inline.visible(getComposer(current.sessionID).editor, current.text) && opts.acceptKeys.includes(key) && canGenerate(current.sessionID) && isComposerEmpty(current.sessionID))
     }, cancelSuggestion)
 
-    context.keymap.layer(() => ({
-      mode: "base",
-      priority: 2,
-      commands: [
+    const commandLayers = () => ghostKeymapLayers([
         ...opts.acceptKeys.map((key) => ({
           id: `ghost.accept.${key}`,
           bind: key,
@@ -181,14 +179,7 @@ export default Plugin.define({
             context.ui.router.navigate({ type: "home" })
           },
         },
-        {
-          id: "ghost.suggest",
-          title: `Prompt suggestions: ${state.enabled ? "on" : "off"}`,
-          description: "Toggle the suggested next prompt",
-          group: "Prompt",
-          palette: true,
-          slash: { name: "suggest", arguments: true },
-          run: async (input) => {
+      ], state.enabled, async (input) => {
             const command = parseSuggestCommand(input)
             if (command.type === "model") {
               cancelSuggestion()
@@ -212,10 +203,9 @@ export default Plugin.define({
             context.ui.toast.show({ message: "Prompt suggestions: on" })
             const route = context.ui.router.current()
             if (route.type === "session") void lifecycle.run(route.sessionID)
-          },
-        },
-      ],
-    }))
+      })
+    context.keymap.layer(() => commandLayers()[0]!)
+    context.keymap.layer(() => commandLayers()[1]!)
 
     const offComposer = context.ui.slot({
       append: "prompt.footer",
