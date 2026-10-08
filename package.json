@@ -1,6 +1,6 @@
 {
   "name": "opencode-ghost",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Stateless inline next-prompt ghosts for the empty OpenCode V2 composer, accepted with Tab or Right.",
   "type": "module",
   "license": "MIT",
