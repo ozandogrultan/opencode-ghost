@@ -99,6 +99,12 @@ copy, use `/absolute/path/to/config/plugins/opencode-ghost`.
 - `/suggest model openai/gpt-6-luna-fast` — set a persisted runtime model override.
 - `/suggest model clear` — clear the override and use the configured `model`,
   or the OpenCode small default, never the main model.
+- `/suggest debug` — toggle debug mode (persisted). While on, each generation
+  attempt shows a toast with its outcome, resolved model, latency and length, or
+  the error.
+- `/suggest debug on` / `/suggest debug off` — set debug mode explicitly.
+- `/suggest log` — show the last 20 generation attempts (outcome, model,
+  latency, length and error detail) in a dialog, regardless of debug mode.
 
 Model precedence is the persisted `/suggest model` override, then the `model`
 option, then the effective title agent's model from OpenCode's public agent API.
@@ -140,6 +146,17 @@ When enabling, a suggestion is generated immediately for the current session.
 - Retains only one suggestion, bounded by `maxChars`, for the visible session.
   Acceptance, a new turn, session changes, disabling, model changes and unloading
   discard it.
+
+## Debugging
+
+Ghost records every generation attempt to a bounded in-memory history (the last
+20): outcome (`ok`, `empty`, `echo`, `no model`, `error`, `aborted`), the resolved
+model with its variant, latency, suggestion length and error detail. `/suggest log`
+shows it in a dialog at any time; `aborted` covers attempts cancelled by typing,
+a newer turn, leaving the session, disabling or unload, so a missing suggestion can
+be traced to a debounce, an empty or `NONE` reply, an echo filter, or a provider
+error. `/suggest debug` toggles the same data as a toast on each attempt (aborts
+are logged but not toasted). The history is not written to disk.
 
 ## Caveats
 

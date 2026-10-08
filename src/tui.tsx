@@ -3,12 +3,13 @@ import { Plugin } from "@opencode/plugin/tui"
 import { TextareaRenderable, InputRenderable, type BoxRenderable, type Renderable } from "@opentui/core"
 import { createEffect, createMemo, createRoot, createSignal, on, onCleanup } from "solid-js"
 import { composerAction, findComposerEditor, isEligibleComposer, isEmptyComposer, keyName, observeComposerInput } from "./composer"
+import { createDiagnostics, errorDetail, formatDiagnostic, formatDiagnostics, modelLabel, type DiagnosticEntry } from "./diagnostics"
 import { createLifecycle } from "./lifecycle"
 import { acceptCommand, acceptShortcuts, ghostKeymapLayers } from "./keymap"
 import { parseSuggestCommand, removedOptionKeys, resolveOptions, suggestionModel } from "./options"
 import { createInlinePlaceholder, dimPlaceholderColor } from "./placeholder"
 import { generateSuggestion } from "./stateless"
-import { isEcho, normalize, resolveExplicitModel, resolveSmallModel } from "./text"
+import { isEcho, normalize, resolveExplicitModel, resolveSmallModel, type SuggestionModel } from "./text"
 import { buildTranscript, lastUserText, suggestionPrompt, type TranscriptMessage } from "./transcript"
 
 type Suggestion = { sessionID: string; text: string }
@@ -35,13 +36,22 @@ export default Plugin.define({
     }
 
     const [state, updateState] = context.storage.store("state", {
-      initial: { enabled: opts.enabled, model: undefined as string | undefined },
+      initial: { enabled: opts.enabled, model: undefined as string | undefined, debug: false },
     })
 
     const [suggestion, setSuggestion] = createSignal<Suggestion | undefined>()
     const [composerRevision, setComposerRevision] = createSignal(0)
     const inline = createInlinePlaceholder()
     const ghostColor = createMemo(() => dimPlaceholderColor(context.theme.text.muted))
+    const diagnostics = createDiagnostics()
+
+    const note = (entry: Omit<DiagnosticEntry, "at">) => {
+      const recorded = diagnostics.record(entry)
+      if (state.debug === true && recorded.outcome !== "aborted") {
+        context.ui.toast.show({ title: "Ghost", message: formatDiagnostic(recorded) })
+      }
+      return recorded
+    }
 
     let disposed = false
     const composers = new Map<string, { marker: BoxRenderable; normal: () => boolean }>()
@@ -66,6 +76,10 @@ export default Plugin.define({
 
     const generate = async (sessionID: string, signal: AbortSignal) => {
       if (!canGenerate(sessionID)) return
+      const started = Date.now()
+      const elapsed = () => Date.now() - started
+      let model: SuggestionModel | undefined
+      let failure: unknown
       try {
         await context.data.session.message.sync(sessionID)
         if (signal.aborted || !canGenerate(sessionID)) return
@@ -75,19 +89,58 @@ export default Plugin.define({
         const session = context.data.session.get(sessionID)
         const location = session?.location ?? context.location ?? context.data.location.default()
         const explicit = suggestionModel(state.model, opts.model)
-        const model = explicit
-          ? resolveExplicitModel(context.client, location, signal, explicit)
-          : resolveSmallModel(context.client, location, signal, session)
-        const raw = await generateSuggestion(context.client, suggestionPrompt(opts.system, transcript), model, signal, warnGeneration, () => canGenerate(sessionID))
-        if (signal.aborted || !raw) return
+        model = explicit
+          ? await resolveExplicitModel(context.client, location, signal, explicit)
+          : await resolveSmallModel(context.client, location, signal, session)
+        if (signal.aborted || !canGenerate(sessionID)) return
+        if (!model) {
+          note({ sessionID, outcome: "unavailable", durationMs: elapsed() })
+          return
+        }
+        const raw = await generateSuggestion(
+          context.client,
+          suggestionPrompt(opts.system, transcript),
+          model,
+          signal,
+          (error) => { failure = error; warnGeneration(error) },
+          () => canGenerate(sessionID),
+        )
+        const label = modelLabel(model)
+        if (signal.aborted) {
+          note({ sessionID, outcome: "aborted", model: label, durationMs: elapsed() })
+          return
+        }
+        if (failure) {
+          note({ sessionID, outcome: "error", model: label, durationMs: elapsed(), detail: errorDetail(failure) })
+          return
+        }
+        if (!raw) {
+          note({ sessionID, outcome: "empty", model: label, durationMs: elapsed() })
+          return
+        }
         const clean = normalize(raw, opts.maxChars)
-        if (!clean) return
+        if (!clean) {
+          note({ sessionID, outcome: "empty", model: label, durationMs: elapsed(), chars: raw.length })
+          return
+        }
         const previous = lastUserText(messages)
-        if (previous && isEcho(clean, previous)) return
+        if (previous && isEcho(clean, previous)) {
+          note({ sessionID, outcome: "echo", model: label, durationMs: elapsed(), chars: clean.length })
+          return
+        }
         if (!canGenerate(sessionID)) return
         setSuggestion({ sessionID, text: clean })
+        note({ sessionID, outcome: "ok", model: label, durationMs: elapsed(), chars: clean.length })
       } catch (error) {
-        if (!signal.aborted) warnGeneration(error)
+        if (signal.aborted) return
+        warnGeneration(error)
+        note({
+          sessionID,
+          outcome: "error",
+          ...(model ? { model: modelLabel(model) } : {}),
+          durationMs: elapsed(),
+          detail: errorDetail(error),
+        })
       }
     }
 
@@ -169,8 +222,23 @@ export default Plugin.define({
               context.ui.toast.show({ message: `Suggestion model: ${state.model ?? opts.model ?? "OpenCode small default"}` })
               return
             }
+            if (command.type === "debug") {
+              const next = command.value ?? (state.debug !== true)
+              await updateState((draft) => { draft.debug = next })
+              context.ui.toast.show({ message: `Ghost debug: ${next ? "on" : "off"}` })
+              return
+            }
+            if (command.type === "log") {
+              const override = state.model ?? opts.model
+              const summary = `suggestions ${state.enabled ? "on" : "off"}, debug ${state.debug === true ? "on" : "off"}, model ${override ?? "OpenCode small default"}`
+              void context.ui.dialog.alert({
+                title: "Ghost — recent generations",
+                message: `${summary}\n\n${formatDiagnostics(diagnostics.list())}`,
+              })
+              return
+            }
             if (command.type === "invalid") {
-              context.ui.toast.show({ message: "Use /suggest, /suggest model provider/model, or /suggest model clear", variant: "warning" })
+              context.ui.toast.show({ message: "Use /suggest, /suggest model provider/model, /suggest model clear, /suggest debug [on|off], or /suggest log", variant: "warning" })
               return
             }
             cancelSuggestion()

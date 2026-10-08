@@ -81,9 +81,20 @@ export function resolveOptions(options: Readonly<Record<string, unknown>> | unde
   }
 }
 
-export function parseSuggestCommand(input: string | undefined): { type: "toggle" } | { type: "model"; model: string | undefined } | { type: "invalid" } {
+export type SuggestCommand =
+  | { type: "toggle" }
+  | { type: "model"; model: string | undefined }
+  | { type: "debug"; value: boolean | undefined }
+  | { type: "log" }
+  | { type: "invalid" }
+
+export function parseSuggestCommand(input: string | undefined): SuggestCommand {
   const raw = input?.trim() ?? ""
   if (!raw) return { type: "toggle" }
+  if (raw === "log") return { type: "log" }
+  if (raw === "debug") return { type: "debug", value: undefined }
+  const debug = /^debug\s+(on|off)$/.exec(raw)
+  if (debug) return { type: "debug", value: debug[1] === "on" }
   const match = /^model\s+(\S+)$/.exec(raw)
   if (!match || (match[1] !== "clear" && !parseModel(match[1]))) return { type: "invalid" }
   return { type: "model", model: match[1] === "clear" ? undefined : match[1] }
