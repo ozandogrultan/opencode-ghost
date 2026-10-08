@@ -15,7 +15,7 @@ function sandbox(options: { cli?: (configDir: string) => unknown | null; tui?: (
   const root = mkdtempSync(join(tmpdir(), "ghost-install-"))
   roots.push(root)
 
-  const config = join(root, "config")
+  const config = join(root, "config with spaces")
   const configDir = join(config, "opencode")
   const binDir = join(root, "bin")
   mkdirSync(configDir, { recursive: true })
@@ -110,8 +110,8 @@ describe("install.sh cli.json registration", () => {
     }
   })
 
-  test("rejects malformed or invalid old tui config before writing cli", () => {
-    for (const raw of ["{broken", "null", "[]", "false", '{"plugin": 1}']) {
+  test("rejects unparseable ghost legacy config before writing cli", () => {
+    for (const raw of ['{broken "opencode-ghost"', '{ // opencode-ghost\n}', '{"plugin": "opencode-ghost"}']) {
       const cli = '{"plugins":["other"],"theme":"custom"}'
       const run = sandbox({ cliRaw: cli, tuiRaw: raw, before: markInstallation })
       expect(run.result.exitCode).not.toBe(0)
@@ -119,6 +119,29 @@ describe("install.sh cli.json registration", () => {
       expect(run.rawTui()).toBe(raw)
       expectInstallationUnchanged(run.configDir)
     }
+  })
+
+  test("unrelated legacy JSONC and invalid configs do not block installation", () => {
+    for (const name of ["tui.json", "tui.jsonc"]) {
+      for (const raw of ['{ // comment\n "plugin": ["other"] }', "{broken", "null", "[]", "false", '{"plugin": 1}']) {
+        const run = sandbox({ before: (dir) => writeFileSync(join(dir, name), raw) })
+        expect(run.result.exitCode).toBe(0)
+        expect(readFileSync(join(run.configDir, name), "utf8")).toBe(raw)
+        expect(run.readCli().plugins).toEqual([join(run.configDir, "plugins/opencode-ghost")])
+        expect(run.result.stderr.toString()).toContain("Warning:")
+      }
+    }
+  })
+
+  test("legacy tui.jsonc migrates JSON registrations and rejects unparseable ghost references", () => {
+    const valid = sandbox({ before: (dir) => writeFileSync(join(dir, "tui.jsonc"), '{"plugin":["opencode-ghost"]}') })
+    expect(valid.result.exitCode).toBe(0)
+    expect(JSON.parse(readFileSync(join(valid.configDir, "tui.jsonc"), "utf8")).plugin).toEqual([])
+    const raw = '{ // comment\n "plugin": ["opencode-ghost"] }'
+    const invalid = sandbox({ before: (dir) => { markInstallation(dir); writeFileSync(join(dir, "tui.jsonc"), raw) } })
+    expect(invalid.result.exitCode).not.toBe(0)
+    expectInstallationUnchanged(invalid.configDir)
+    expect(readFileSync(join(invalid.configDir, "tui.jsonc"), "utf8")).toBe(raw)
   })
 
   test("recognizes package and old relative, absolute, source and file URL registrations", () => {

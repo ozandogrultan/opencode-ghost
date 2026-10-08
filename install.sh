@@ -27,7 +27,7 @@ if [ "$install_all" = true ] || [ ${#targets[@]} -eq 0 ]; then
     exit 1
   fi
   # Prefer opencode's own reported config path; fall back to the XDG default.
-  cfg="$(opencode debug paths 2>/dev/null | awk '$1 == "config" { print $2; exit }')"
+  cfg="$(opencode debug paths 2>/dev/null | awk '$1 == "config" { sub(/^[[:space:]]*config[[:space:]]+/, ""); print; exit }')"
   if [ -z "$cfg" ]; then
     cfg="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
   fi
@@ -87,14 +87,19 @@ for target_cfg in ${unique_targets+"${unique_targets[@]}"}; do
       }
       return [entry, path.join(entry, "tui.tsx"), path.join(entry, "src"), path.join(entry, "src", "tui.tsx")].includes(resolved)
     }
-    const readConfig = (file, key) => {
+    const readConfig = (file, key, legacy = false) => {
       if (!fs.existsSync(file)) return {}
+      const raw = fs.readFileSync(file, "utf8")
       try {
-        const config = JSON.parse(fs.readFileSync(file, "utf8"))
+        const config = JSON.parse(raw)
         if (!config || typeof config !== "object" || Array.isArray(config)) throw new Error()
         if (key in config && !Array.isArray(config[key])) throw new Error()
         return config
       } catch {
+        if (legacy && !raw.includes("opencode-ghost")) {
+          console.error(`Warning: skipping unrelated legacy config ${file}; cannot parse it as JSON`)
+          return {}
+        }
         console.error(`Cannot safely parse ${file} as a JSON object; no files were changed. For JSONC, register manually: "plugins": ["${entry}"]`)
         process.exit(1)
       }
@@ -105,11 +110,11 @@ for target_cfg in ${unique_targets+"${unique_targets[@]}"}; do
       return kept
     }
     const cli = readConfig(cliFile, "plugins")
-    const tui = readConfig(tuiFile, "plugin")
+    const legacyConfigs = [tuiFile, `${tuiFile}c`].map((file) => ({ file, config: readConfig(file, "plugin", true) }))
 
     let carriedOptions
-    let migratedTui
-    {
+    const migrated = []
+    for (const { file, config: tui } of legacyConfigs) {
       const list = Array.isArray(tui.plugin) ? tui.plugin : []
       const remaining = list.filter((item) => {
         const spec = Array.isArray(item) ? item[0] : item && typeof item === "object" ? item.package : item
@@ -120,7 +125,7 @@ for target_cfg in ${unique_targets+"${unique_targets[@]}"}; do
       })
       if (remaining.length !== list.length) {
         tui.plugin = remaining
-        migratedTui = tui
+        migrated.push({ file, config: tui })
       }
     }
 
@@ -154,7 +159,7 @@ for target_cfg in ${unique_targets+"${unique_targets[@]}"}; do
     for (const name of fs.readdirSync(source).filter((name) => /\.tsx?$/.test(name))) fs.copyFileSync(path.join(source, name), path.join(entry, name))
     for (const name of ["builtins.ts", "completion.ts"]) fs.rmSync(path.join(entry, name), { force: true })
     fs.writeFileSync(cliFile, JSON.stringify(cli, null, 2) + "\n")
-    if (migratedTui) fs.writeFileSync(tuiFile, JSON.stringify(migratedTui, null, 2) + "\n")
+    for (const { file, config } of migrated) fs.writeFileSync(file, JSON.stringify(config, null, 2) + "\n")
   ' "$cli" "$old_tui" "$entry" "$target_cfg" "$src"
 
   echo "installed -> $entry"
