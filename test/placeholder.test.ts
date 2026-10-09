@@ -163,7 +163,7 @@ test("only accepting a visible eligible ghost materializes text; placeholder nev
   })
 })
 
-test("the real composer gate suppresses autocomplete, attachments, selections, wrong focus and modes", async () => {
+test("the real composer gate suppresses autocomplete, selections, wrong focus and modes", async () => {
   await withEditor((editor, setup) => {
     const body = new BoxRenderable(setup.renderer, { id: "body" })
     setup.renderer.root.remove(editor)
@@ -187,15 +187,6 @@ test("the real composer gate suppresses autocomplete, attachments, selections, w
     slotContent.destroy()
     otherSlot.destroy()
     metadata.destroy()
-    expect(eligible()).toBe(false)
-    const restoredMetadata = new BoxRenderable(setup.renderer, { id: "metadata" })
-    body.add(restoredMetadata)
-    expect(eligible()).toBe(true)
-    const attachmentNode = new BoxRenderable(setup.renderer, { id: "attachment" })
-    attachmentNode.add(new TextRenderable(setup.renderer, { id: "attachment-label", content: "Attachment" }))
-    body.add(attachmentNode)
-    expect(eligible()).toBe(false)
-    attachmentNode.destroy()
     expect(eligible()).toBe(true)
     editor.traits = { capture: ["escape", "navigate", "submit", "tab"] }
     expect(eligible()).toBe(false)
@@ -300,37 +291,5 @@ test("typing then deleting restores the original ghost without another generatio
     } finally {
       lifecycle.dispose()
     }
-  })
-})
-
-test("mentionless preview UI suppresses display and acceptance even when the image preview fails", async () => {
-  await withEditor((editor, setup) => {
-    const body = new BoxRenderable(setup.renderer, { id: "body" })
-    setup.renderer.root.remove(editor)
-    setup.renderer.root.add(body)
-    body.add(editor)
-    body.add(new BoxRenderable(setup.renderer, { id: "metadata" }))
-    body.add(new BoxRenderable(setup.renderer, { id: "slot-layout-ghost-marker" }))
-    const inline = createInlinePlaceholder()
-    body.add(new BoxRenderable(setup.renderer, { id: "slot-layout-slot-node-24-1" }), 0)
-    const sync = () => inline.sync(editor, "Next prompt", muted, isEmptyComposer(editor, editor, "base", true, false))
-    sync()
-    expect(inline.visible(editor, "Next prompt")).toBe(true)
-    const previews = new BoxRenderable(setup.renderer, { id: "previews" })
-    const thumbnail = new BoxRenderable(setup.renderer, { id: "thumbnail" })
-    previews.add(thumbnail)
-    body.add(previews, 0)
-    expect(editor.extmarks.getAll()).toEqual([])
-    sync()
-    expect(inline.visible(editor, "Next prompt")).toBe(false)
-    expect(composerAction(editor, () => editor, "base", true, isEmptyComposer(editor, editor, "base", true, false), "Next prompt")).toBe(false)
-    thumbnail.add(new TextRenderable(setup.renderer, { id: "failed-preview", content: "No preview" }))
-    sync()
-    expect(inline.visible(editor, "Next prompt")).toBe(false)
-    expect(editor.plainText).toBe("")
-    previews.destroy()
-    sync()
-    expect(inline.visible(editor, "Next prompt")).toBe(true)
-    inline.clear()
   })
 })

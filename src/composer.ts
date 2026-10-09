@@ -39,10 +39,6 @@ export function isEmptyComposer(editor: TextareaRenderable | undefined, focused:
 export function composerBlocker(editor: TextareaRenderable | undefined, mode: string, normal: boolean, selected: boolean): string | undefined {
   if (!editor) return "no composer editor"
   if (!editor.parent || editor.parent.isDestroyed) return "editor detached"
-  const siblings = editor.parent.getChildren().filter((node) =>
-    !node.id.startsWith("slot-layout-"),
-  )
-  if (siblings.length !== 2 || siblings[0] !== editor) return `composer has ${siblings.length} sibling nodes (${siblings.map((node) => node.id || "?").join(", ")})`
   if (!normal) return "prompt not in normal mode"
   if (mode !== "base") return `keymap mode is ${mode}`
   if (selected) return "renderer has a selection"

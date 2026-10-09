@@ -161,8 +161,7 @@ are logged but not toasted). The history is not written to disk.
 When a generation is `ok` but nothing is visible, `/suggest log` also shows the
 live display state and a bounded history of display changes. Each `shown` or
 `hidden` entry names the reason the placeholder is not applied: no
-`prompt.footer` marker, an unidentified or ambiguous editor, extra sibling nodes in
-the composer, a non-normal prompt or keymap mode, a draft, selection, extmarks,
+`prompt.footer` marker, an unidentified or ambiguous editor, a non-normal prompt or keymap mode, a draft, selection, extmarks,
 a busy or hidden session, or the host overriding the placeholder. The live
 section also reports focus, keymap mode and the placeholder colour. With
 `/suggest debug` on, each change is toasted.
@@ -174,13 +173,12 @@ section also reports focus, keymap mode and the placeholder colour. With
   composer, not a completion after typed text.
 - **Focus safety.** Modal/form and shell editors are never acceptance targets.
   Non-base keymap modes, autocomplete capture, renderer/editor selections and
-  composer extmarks suppress the ghost. The textarea must be the first of exactly
-  two children in its body (editor and metadata); additional UI, including image
-  previews and failed-preview boxes, suppresses display and acceptance.
+  composer extmarks suppress the ghost. The layout around the textarea is not
+  inspected, so it works across host layouts.
 - **Attachment visibility.** V2 does not expose draft attachments to plugins.
-  Mentionless files without a rendered preview (non-image files or images with
-  previews disabled) cannot be detected, so a ghost may appear in those drafts.
-  Disable suggestions with `/suggest` when using such attachments.
+  Attachments without an extmark (image previews, non-image files) cannot be
+  detected, so a ghost may appear in those drafts. Disable suggestions with
+  `/suggest` when using such attachments.
 - **Renderer integration.** Composer discovery depends on the host renderer
   hierarchy and its composer identity guard. Placeholder synchronization uses
   OpenTUI's public pre-render callback; host renderer changes need re-verification.
