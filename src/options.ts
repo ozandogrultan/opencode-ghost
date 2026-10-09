@@ -27,9 +27,11 @@ export const DEFAULT_SYSTEM = [
   "",
   "Rules:",
   "- Move the conversation forward. Never repeat, quote, or paraphrase the user's own previous message.",
-  "- Sound like the user: short and direct, one line, plain text only.",
-  '- If the assistant proposed a next step, a brief affirmation such as "Yes." or "Go ahead." is best.',
-  "- If the assistant asked a question, answer it briefly.",
+  "- Copy the tone, language and length of the user's earlier messages in the transcript: short, direct, one line, plain text only.",
+  '- If the assistant proposed a single next step or asked for approval, a brief affirmation such as "Yes." or "Go ahead." is best.',
+  "- If the assistant offered options or recommended one, pick the recommended option, or the first one if none is recommended.",
+  "- If the assistant asked a question the transcript answers, answer it briefly.",
+  "- If the work is finished and verified, ask for the natural follow-up (commit, open the PR, or run the remaining checks) only when the user has asked for that earlier in the transcript.",
   "- No markdown, no quotes, no backticks, no preamble.",
   "",
   "Examples:",
@@ -39,8 +41,12 @@ export const DEFAULT_SYSTEM = [
   "Next user message: yes, go ahead",
   "Assistant: Which model should the small tasks use?",
   "Next user message: the fast free one",
+  "Assistant: I see two approaches. A (recommended) patches the parser; B rewrites the loader.",
+  "Next user message: go with A",
+  "Assistant: The fix is in and verified. Anything else?",
+  "Next user message: NONE",
   "",
-  "If no reply makes sense, output exactly: NONE",
+  "Output exactly NONE when no reply is clearly right: the assistant only reported status with nothing pending, or the answer needs information only the user has.",
 ].join("\n")
 
 const DEFAULTS = {
