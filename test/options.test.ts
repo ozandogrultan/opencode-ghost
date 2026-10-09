@@ -96,4 +96,9 @@ describe("removedOptionKeys", () => {
       }),
     ).toEqual(["endpoint", "apiKey", "internalSessionMarkerDir", "argHints", "backOnEmptyLeft"])
   })
+
+  test("normalises accept key aliases and drops unknown modifiers", () => {
+    expect(resolveOptions({ acceptKeys: ["meta+y", "Cmd+Y", "bogus+z", "esc"] }).acceptKeys).toEqual(["alt+y", "super+y", "escape"])
+    expect(resolveOptions({ acceptKeys: ["bogus+z"] }).acceptKeys).toEqual(["tab", "right"])
+  })
 })

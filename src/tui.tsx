@@ -2,14 +2,14 @@
 import { Plugin } from "@opencode/plugin/tui"
 import { TextareaRenderable, InputRenderable, type BoxRenderable, type Renderable } from "@opentui/core"
 import { createEffect, createMemo, createRoot, createSignal, on, onCleanup } from "solid-js"
-import { composerAction, composerBlocker, isEmptyComposer, keyName, locateComposerEditor, observeComposerInput, type ComposerLookup } from "./composer"
+import { composerAction, composerBlocker, isEmptyComposer, keyName, locateComposerEditor, observeComposerInput, removesOnly, type ComposerLookup } from "./composer"
 import { createDiagnostics, errorDetail, formatDiagnostic, formatDiagnostics, modelLabel, type DiagnosticEntry } from "./diagnostics"
 import { createLifecycle } from "./lifecycle"
-import { acceptCommand, acceptShortcuts, ghostKeymapLayers } from "./keymap"
+import { acceptCommand, acceptShortcuts, ghostBaseLayer, ghostSuggestLayer } from "./keymap"
 import { parseSuggestCommand, removedOptionKeys, resolveOptions, suggestionModel } from "./options"
 import { createInlinePlaceholder, dimPlaceholderColor } from "./placeholder"
 import { generateSuggestion } from "./stateless"
-import { isEcho, normalize, resolveExplicitModel, resolveSmallModel, type SuggestionModel } from "./text"
+import { createCatalog, isEcho, isNoSmallModel, normalize, resolveExplicitModel, resolveSmallModel, type SuggestionModel } from "./text"
 import { buildTranscript, lastUserText, suggestionPrompt, type TranscriptMessage } from "./transcript"
 
 type Suggestion = { sessionID: string; text: string }
@@ -44,6 +44,7 @@ export default Plugin.define({
     const inline = createInlinePlaceholder()
     const ghostColor = createMemo(() => dimPlaceholderColor(context.theme.text.muted))
     const diagnostics = createDiagnostics()
+    const catalog = createCatalog(context.client)
 
     const note = (entry: Omit<DiagnosticEntry, "at">) => {
       const recorded = diagnostics.record(entry)
@@ -90,13 +91,10 @@ export default Plugin.define({
         const location = session?.location ?? context.location ?? context.data.location.default()
         const explicit = suggestionModel(state.model, opts.model)
         model = explicit
-          ? await resolveExplicitModel(context.client, location, signal, explicit)
-          : await resolveSmallModel(context.client, location, signal, session)
+          ? await resolveExplicitModel(context.client, location, signal, explicit, catalog)
+          : await resolveSmallModel(context.client, location, signal, session, catalog)
         if (signal.aborted || !canGenerate(sessionID)) return
-        if (!model) {
-          note({ sessionID, outcome: "unavailable", durationMs: elapsed() })
-          return
-        }
+        if (!model) return
         const raw = await generateSuggestion(
           context.client,
           suggestionPrompt(opts.system, transcript),
@@ -115,6 +113,7 @@ export default Plugin.define({
           return
         }
         if (!raw) {
+          if (!canGenerate(sessionID)) return
           note({ sessionID, outcome: "empty", model: label, durationMs: elapsed() })
           return
         }
@@ -136,7 +135,7 @@ export default Plugin.define({
         warnGeneration(error)
         note({
           sessionID,
-          outcome: "error",
+          outcome: isNoSmallModel(error) ? "unavailable" : "error",
           ...(model ? { model: modelLabel(model) } : {}),
           durationMs: elapsed(),
           detail: errorDetail(error),
@@ -147,7 +146,7 @@ export default Plugin.define({
     const lifecycle = createLifecycle(opts.idleDelayMs, canGenerate, generate, () => {
       inline.clear()
       setSuggestion(undefined)
-    })
+    }, (sessionID) => !disposed && state.enabled && isCurrentSession(sessionID))
     const cancelSuggestion = lifecycle.cancel
 
     const offSucceeded = context.data.on("session.execution.succeeded", (event) => {
@@ -166,23 +165,28 @@ export default Plugin.define({
     const displayLog = createDiagnostics()
     let lastDisplay: string | undefined
 
-    const displayStatus = (current: Suggestion): string => {
-      if (!canGenerate(current.sessionID)) return "session busy, hidden or suggestions disabled"
+    const inspect = (current: Suggestion) => {
       const entry = composers.get(current.sessionID)
       const found = lookupComposer(entry?.marker)
-      if (!found.editor) return found.reason
-      const blocker = composerBlocker(found.editor, context.keymap.mode.current(), entry?.normal() === true, context.renderer.hasSelection)
-      if (blocker) return blocker
-      return inline.visible(found.editor, current.text) ? "shown" : "placeholder not applied (host overrode it)"
+      const allowed = canGenerate(current.sessionID)
+      const blocker = found.editor
+        ? composerBlocker(found.editor, context.keymap.mode.current(), entry?.normal() === true, context.renderer.hasSelection)
+        : found.reason
+      return { editor: found.editor, allowed, blocker }
     }
 
-    const trackDisplay = () => {
-      const current = suggestion()
+    const displayStatus = (current: Suggestion, view = inspect(current)): string => {
+      if (!view.allowed) return "session busy, hidden or suggestions disabled"
+      if (view.blocker) return view.blocker
+      return inline.visible(view.editor, current.text) ? "shown" : "placeholder not applied (host overrode it)"
+    }
+
+    const trackDisplay = (current: Suggestion | undefined, view?: ReturnType<typeof inspect>) => {
       if (!current) {
         lastDisplay = undefined
         return
       }
-      const status = displayStatus(current)
+      const status = displayStatus(current, view)
       if (status === lastDisplay) return
       lastDisplay = status
       const recorded = displayLog.record({
@@ -202,9 +206,15 @@ export default Plugin.define({
     const syncInline = () => {
       composerRevision()
       const current = suggestion()
-      const { editor, normal } = current ? getComposer(current.sessionID) : { editor: undefined, normal: false }
-      inline.sync(editor, current?.text, ghostColor(), !!current && canGenerate(current.sessionID) && !composerBlocker(editor, context.keymap.mode.current(), normal, context.renderer.hasSelection))
-      trackDisplay()
+      const color = ghostColor()
+      if (!current) {
+        inline.sync(undefined, undefined, color, false)
+        trackDisplay(undefined)
+        return
+      }
+      const view = inspect(current)
+      inline.sync(view.editor, current.text, color, view.allowed && !view.blocker)
+      trackDisplay(current, view)
     }
 
     const disposeRouteWatcher = createRoot((dispose) => {
@@ -234,22 +244,42 @@ export default Plugin.define({
       return true
     }
 
-    const offInput = observeComposerInput(context.renderer.keyInput, (event) => {
-      syncInline()
-      const key = keyName(event)
-      const current = suggestion()
-      return Boolean(current && inline.visible(getComposer(current.sessionID).editor, current.text) && acceptShortcuts(opts.acceptKeys, context.keymap.shortcuts).has(key) && canGenerate(current.sessionID) && isComposerEmpty(current.sessionID))
-    }, () => { lifecycle.interrupt(); inline.clear() })
+    const targetedEditor = () => {
+      const route = context.ui.router.current()
+      if (route.type !== "session") return undefined
+      const editor = getComposer(route.sessionID).editor
+      return editor && editor === context.renderer.currentFocusedEditor ? editor : undefined
+    }
 
-    const commandLayers = () => ghostKeymapLayers([
-        ...opts.acceptKeys.map((key) => acceptCommand(key, () => {
-             const route = context.ui.router.current()
-             return route.type === "session" ? route.sessionID : undefined
-           }, () => suggestion()?.sessionID, act)),
-      ], state.enabled, async (input) => {
+    const pending = () => lifecycle.active() || suggestion() !== undefined
+
+    const offInput = observeComposerInput(context.renderer.keyInput, (event) => {
+      if (!pending()) return true
+      const editor = targetedEditor()
+      if (!editor) return true
+      if (editor.plainText === "" && removesOnly(event)) return true
+      const current = suggestion()
+      if (!current) return false
+      syncInline()
+      return Boolean(inline.visible(editor, current.text) && acceptShortcuts(opts.acceptKeys, context.keymap.shortcuts).has(keyName(event)) && canGenerate(current.sessionID) && isComposerEmpty(current.sessionID))
+    }, () => {
+      if (!pending() || !targetedEditor()) return
+      lifecycle.interrupt()
+      inline.clear()
+    })
+
+    const acceptLayer = () => ghostBaseLayer(
+      opts.acceptKeys.map((key) => acceptCommand(key, () => {
+        const route = context.ui.router.current()
+        return route.type === "session" ? route.sessionID : undefined
+      }, () => suggestion()?.sessionID, act)),
+    )
+    const suggestLayer = () => ghostSuggestLayer(state.enabled, async (input) => {
             const command = parseSuggestCommand(input)
             if (command.type === "model") {
               cancelSuggestion()
+              lifecycle.resetWarning()
+              catalog.clear()
               await updateState((draft) => { draft.model = command.model })
               context.ui.toast.show({ message: `Suggestion model: ${state.model ?? opts.model ?? "OpenCode small default"}` })
               return
@@ -296,11 +326,12 @@ export default Plugin.define({
               return
             }
             context.ui.toast.show({ message: "Prompt suggestions: on" })
+            catalog.clear()
             const route = context.ui.router.current()
             if (route.type === "session") void lifecycle.run(route.sessionID)
       })
-    context.keymap.layer(() => commandLayers()[0]!)
-    context.keymap.layer(() => commandLayers()[1]!)
+    context.keymap.layer(acceptLayer)
+    context.keymap.layer(suggestLayer)
 
     const offComposer = context.ui.slot({
       append: "prompt.footer",

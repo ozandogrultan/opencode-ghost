@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
 import { InternalKeyHandler, KeyEvent } from "@opentui/core"
-import { canonicalKey, composerAction, composerBlocker, findComposerEditor, keyName, locateComposerEditor, observeComposerInput, type Editor, type EditorNode } from "../src/composer"
+import { canonicalKey, isValidKey, removesOnly, composerAction, composerBlocker, findComposerEditor, keyName, locateComposerEditor, observeComposerInput, type Editor, type EditorNode } from "../src/composer"
 import { createLifecycle } from "../src/lifecycle"
 
 test("input cancellation runs before consuming keymap listeners, aborts active generation and cleans up", async () => {
@@ -175,4 +175,24 @@ test("locateComposerEditor and composerBlocker name the reason a composer is ref
   expect(composerBlocker(editor(), "shell", true, false)).toBe("keymap mode is shell")
   expect(composerBlocker(editor({ plainText: "x" }), "base", true, false)).toBe("composer not empty")
   expect(composerBlocker(editor({ extmarks: { getAll: () => [1] } }), "base", true, false)).toBe("editor has 1 extmark(s)")
+})
+
+test("key aliases map to canonical modifiers and unknown modifiers are invalid", () => {
+  expect(canonicalKey("meta+y")).toBe("alt+y")
+  expect(canonicalKey("Option+Y")).toBe("alt+y")
+  expect(canonicalKey("cmd+y")).toBe("super+y")
+  expect(canonicalKey("control+esc")).toBe("ctrl+escape")
+  expect(isValidKey("meta+y")).toBe(true)
+  expect(isValidKey("hyperdrive+y")).toBe(false)
+  expect(isValidKey("ctrl+")).toBe(false)
+})
+
+test("removal keys are recognised only without other modifiers", () => {
+  const key = { name: "backspace", ctrl: false, meta: false }
+  expect(removesOnly(key)).toBe(true)
+  expect(removesOnly({ ...key, name: "delete" })).toBe(true)
+  expect(removesOnly({ ...key, name: "u", ctrl: true })).toBe(true)
+  expect(removesOnly({ ...key, name: "j", ctrl: true })).toBe(false)
+  expect(removesOnly({ ...key, name: "a" })).toBe(false)
+  expect(removesOnly({ ...key, meta: true })).toBe(false)
 })

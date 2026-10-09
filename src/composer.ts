@@ -7,6 +7,12 @@ export function editsComposer(event: { name: string; sequence: string; ctrl: boo
   return [...event.sequence].length === 1 && !/[\u0000-\u001f\u007f]/.test(event.sequence)
 }
 
+export function removesOnly(event: { name: string; ctrl: boolean; meta: boolean; option?: boolean; super?: boolean; hyper?: boolean }): boolean {
+  if (event.ctrl && !event.meta && !event.option && !event.super && !event.hyper) return ["h", "d", "k", "u", "w"].includes(event.name)
+  if (event.ctrl || event.meta || event.option || event.super || event.hyper) return false
+  return event.name === "backspace" || event.name === "delete"
+}
+
 export function observeComposerInput(input: KeyHandler, preserve: (event: KeyEvent) => boolean, cancel: () => void): () => void {
   const onKeypress = (event: KeyEvent) => {
     if (editsComposer(event) && !preserve(event)) cancel()
@@ -89,8 +95,27 @@ export function keyName(event: { name: string; ctrl: boolean; meta: boolean; shi
   return [event.ctrl && "ctrl", (event.meta || event.option) && "alt", event.shift && "shift", event.super && "super", event.hyper && "hyper", event.name].filter(Boolean).join("+")
 }
 
+const MODIFIERS = ["ctrl", "alt", "shift", "super", "hyper"]
+
+const KEY_ALIASES: Record<string, string> = {
+  control: "ctrl",
+  meta: "alt",
+  option: "alt",
+  opt: "alt",
+  cmd: "super",
+  command: "super",
+  win: "super",
+  esc: "escape",
+}
+
 export function canonicalKey(key: string): string {
-  const parts = key.trim().toLowerCase().split("+")
+  const parts = key.trim().toLowerCase().split("+").map((part) => KEY_ALIASES[part] ?? part)
   const name = parts.pop() ?? ""
-  return [...["ctrl", "alt", "shift", "super", "hyper"].filter((modifier) => parts.includes(modifier)), name].join("+")
+  return [...MODIFIERS.filter((modifier) => parts.includes(modifier)), name].join("+")
+}
+
+export function isValidKey(key: string): boolean {
+  const parts = key.trim().toLowerCase().split("+").map((part) => part.trim())
+  const name = parts.pop()
+  return !!name && parts.every((part) => MODIFIERS.includes(KEY_ALIASES[part] ?? part))
 }

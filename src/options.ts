@@ -1,5 +1,5 @@
 import { parseModel } from "./text"
-import { canonicalKey } from "./composer"
+import { canonicalKey, isValidKey } from "./composer"
 
 export type GhostOptions = {
   enabled?: boolean
@@ -70,7 +70,7 @@ export function resolveOptions(options: Readonly<Record<string, unknown>> | unde
   const idleDelayMs = input.idleDelayMs
   const recentMessages = input.recentMessages
   const acceptKeys = Array.isArray(input.acceptKeys)
-    ? [...new Set(input.acceptKeys.filter((key) => typeof key === "string" && key.trim() && key.trim().split("+").every((part) => part.trim())).map(canonicalKey))]
+    ? [...new Set(input.acceptKeys.filter((key) => typeof key === "string" && key.trim() && isValidKey(key)).map(canonicalKey))]
     : []
   return {
     enabled: typeof input.enabled === "boolean" ? input.enabled : DEFAULTS.enabled,

@@ -1,4 +1,4 @@
-export function createLifecycle(delay: number, allowed: (sessionID: string) => boolean, generate: (sessionID: string, signal: AbortSignal) => Promise<void>, clear: () => void) {
+export function createLifecycle(delay: number, allowed: (sessionID: string) => boolean, generate: (sessionID: string, signal: AbortSignal) => Promise<void>, clear: () => void, observed: (sessionID: string) => boolean = allowed) {
   let timer: ReturnType<typeof setTimeout> | undefined
   let controller: AbortController | undefined
   let disposed = false
@@ -27,12 +27,14 @@ export function createLifecycle(delay: number, allowed: (sessionID: string) => b
     cancel,
     run,
     succeeded(id: string, sessionID: string) {
-      if (disposed || !allowed(sessionID) || completed.has(id)) return
+      if (disposed || !observed(sessionID) || completed.has(id)) return
       completed.add(id)
       if (completed.size > COMPLETION_HISTORY_LIMIT) completed.delete(completed.values().next().value!)
       cancel()
       timer = setTimeout(() => { timer = undefined; void run(sessionID) }, delay)
     },
+    active: () => timer !== undefined || controller !== undefined,
+    resetWarning() { warned = false },
     warn(show: () => void) {
       if (disposed || warned) return
       warned = true

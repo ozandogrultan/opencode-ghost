@@ -106,7 +106,7 @@ for target_cfg in ${unique_targets+"${unique_targets[@]}"}; do
     }
     const cleanOptions = (options) => {
       if (!options || typeof options !== "object" || Array.isArray(options)) return undefined
-      const { apiKey, endpoint, internalSessionMarkerDir, argHints, ...kept } = options
+      const { apiKey, endpoint, internalSessionMarkerDir, argHints, backOnEmptyLeft, ...kept } = options
       return kept
     }
     const cli = readConfig(cliFile, "plugins")

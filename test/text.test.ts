@@ -77,3 +77,21 @@ describe("isEcho", () => {
     expect(isEcho("", "done")).toBe(false)
   })
 })
+
+describe("normalize identifiers", () => {
+  test("keeps underscores and asterisks inside words and globs", () => {
+    expect(normalize("rename user_id to userId in *.ts files", 100)).toBe("rename user_id to userId in *.ts files")
+    expect(normalize("fix __init__.py", 100)).toBe("fix __init__.py")
+    expect(normalize("`snake_case`", 100)).toBe("snake_case")
+  })
+
+  test("unwraps bold and the role prefix", () => {
+    expect(normalize("**Run the tests** now", 100)).toBe("Run the tests now")
+    expect(normalize("Next user message: go ahead", 100)).toBe("go ahead")
+  })
+
+  test("truncates on code points", () => {
+    const out = normalize("😀".repeat(20), 5)
+    expect([...out!]).toEqual([..."😀😀😀😀", "…"])
+  })
+})

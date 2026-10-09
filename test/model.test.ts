@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import { parseSuggestCommand, suggestionModel } from "../src/options"
 import type { AgentInfo, ModelInfo } from "@opencode/client"
-import { NO_SMALL_MODEL, resolveExplicitModel, resolveSmallModel, selectSmallModel, type SmallModelClient } from "../src/text"
+import { NO_SMALL_MODEL, createCatalog, resolveExplicitModel, resolveSmallModel, selectSmallModel, type SmallModelClient } from "../src/text"
 import { generateSuggestion } from "../src/stateless"
 import { createLifecycle } from "../src/lifecycle"
 
@@ -216,4 +216,44 @@ test("provider generation failure warns without retrying or switching provider",
   expect(calls).toEqual(["agents", "list"])
   expect(requests).toEqual([{ prompt: "prompt", model: { providerID: "anthropic", id: "haiku" } }])
   expect(warnings).toHaveLength(1)
+})
+
+test("catalog cache serves repeated resolutions from one model list call and expires", async () => {
+  let clock = 0
+  const { api, calls } = client()
+  const catalog = createCatalog(api, 1000, () => clock)
+  await resolveSmallModel(api, location, signal(), undefined, catalog)
+  await resolveSmallModel(api, location, signal(), undefined, catalog)
+  await resolveExplicitModel(api, location, signal(), { providerID: "primary", modelID: "actual-small-id" }, catalog)
+  expect(calls.filter((call) => call === "list")).toHaveLength(1)
+  expect(calls.filter((call) => call === "agents")).toHaveLength(2)
+  clock = 1000
+  await resolveSmallModel(api, location, signal(), undefined, catalog)
+  expect(calls.filter((call) => call === "list")).toHaveLength(2)
+  catalog.clear()
+  await resolveSmallModel(api, location, signal(), undefined, catalog)
+  expect(calls.filter((call) => call === "list")).toHaveLength(3)
+})
+
+test("a stale cached catalog is refetched once before reporting no small model", async () => {
+  const models = [model({ family: "other" })]
+  const { api: base, calls } = client([], models)
+  const api: SmallModelClient = { ...base, model: { ...base.model, list: async (input, options) => { const result = await base.model.list(input, options); return { ...result, data: [...result.data] } } } }
+  const catalog = createCatalog(api)
+  await expect(resolveSmallModel(api, location, signal(), undefined, catalog)).rejects.toThrow(NO_SMALL_MODEL)
+  expect(calls.filter((call) => call === "list")).toHaveLength(1)
+  calls.length = 0
+  models[0] = model()
+  expect((await resolveSmallModel(api, location, signal(), undefined, catalog))?.modelID).toBe("actual-small-id")
+  expect(calls.filter((call) => call === "list")).toHaveLength(1)
+})
+
+test("a fresh catalog failure is not retried and aborted fetches are not cached", async () => {
+  const { api, calls } = client([], [model({ family: "other" })])
+  const catalog = createCatalog(api)
+  await expect(resolveSmallModel(api, location, signal(), undefined, catalog)).rejects.toThrow(NO_SMALL_MODEL)
+  expect(calls.filter((call) => call === "list")).toHaveLength(1)
+  const failing = createCatalog({ model: { default: api.model.default, list: async () => { throw new Error("offline") } } })
+  await expect(failing.list(location, signal())).rejects.toThrow("offline")
+  await expect(failing.list(location, signal())).rejects.toThrow("offline")
 })

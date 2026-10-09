@@ -133,3 +133,27 @@ test("warning is shown only once per load and never after unload", () => {
   lifecycle.warn(() => warnings++)
   expect(warnings).toBe(1)
 })
+
+test("warning can be re-armed", () => {
+  let warnings = 0
+  const lifecycle = createLifecycle(0, () => true, async () => {}, () => {})
+  lifecycle.warn(() => warnings++)
+  lifecycle.resetWarning()
+  lifecycle.warn(() => warnings++)
+  expect(warnings).toBe(2)
+  lifecycle.dispose()
+})
+
+test("completion gates on observation, not idleness, and the run re-checks after the delay", async () => {
+  let idle = false
+  const calls: string[] = []
+  const lifecycle = createLifecycle(10, () => idle, async (id) => { calls.push(id) }, () => {}, (id) => id === "current")
+  lifecycle.succeeded("a", "other")
+  lifecycle.succeeded("b", "current")
+  expect(lifecycle.active()).toBe(true)
+  idle = true
+  await Bun.sleep(30)
+  expect(calls).toEqual(["current"])
+  expect(lifecycle.active()).toBe(false)
+  lifecycle.dispose()
+})

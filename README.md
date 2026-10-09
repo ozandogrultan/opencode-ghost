@@ -87,7 +87,7 @@ copy, use `/absolute/path/to/config/plugins/opencode-ghost`.
 | ---------------- | ---------- | ------------------- | ------------------------------------------------------------- |
 | `enabled`        | `boolean`  | `true`              | Initial state; `/suggest` toggles it at runtime (persisted).  |
 | `model`          | `string`   | OpenCode small default | Explicit `provider/model` override. Otherwise uses the effective title-agent model or OpenCode's small-model selection policy. |
-| `acceptKeys`     | `string[]` | `["tab", "right"]`  | Key names as reported by the terminal (`tab`, `right`, ...).  |
+| `acceptKeys`     | `string[]` | `["tab", "right"]`  | Key names as reported by the terminal (`tab`, `right`, ...). Modifier aliases (`meta`, `option`, `cmd`, `control`) are normalised; unknown modifiers are ignored. |
 | `maxChars`       | `number`   | `120`               | Maximum suggestion length.                                     |
 | `idleDelayMs`    | `number`   | `500`               | Debounce after a turn finishes before generating.               |
 | `recentMessages` | `number`   | `10`                | How many recent messages feed the suggestion prompt.            |
@@ -120,8 +120,10 @@ the first enabled, active text-input/text-output catalog model in family order
 `gpt-luna`, `gemini-flash-lite`, `gemini-flash`, `claude-haiku`.
 Like OpenCode's title generation, an override, title or small model without a
 configured variant uses its first supported `none`, `minimal` or `low` variant.
-Catalog IDs are used directly. No matching small model means a warning and no
-suggestion. Ghost never uses the main model as a generation fallback or retries
+Catalog IDs are used directly. The model catalog is cached for five minutes
+(cleared by `/suggest model` and re-enabling, and refetched once before reporting
+no small model); the agent list is read on every generation. No matching small
+model means a warning and no suggestion. Ghost never uses the main model as a generation fallback or retries
 with another provider. An explicit override or configured title model may use
 a different provider from the session's primary model.
 

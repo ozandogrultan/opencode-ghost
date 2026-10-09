@@ -146,7 +146,7 @@ describe("install.sh cli.json registration", () => {
 
   test("recognizes package and old relative, absolute, source and file URL registrations", () => {
     for (const spec of ["opencode-ghost", "opencode-ghost@0.5.0", "./plugins/opencode-ghost/tui.tsx", "./plugins/opencode-ghost/src/tui.tsx", "absolute", "url"]) {
-      const run = sandbox({ tui: (dir) => ({ theme: "custom", plugin: [[spec === "absolute" ? `${dir}/plugins/opencode-ghost/tui.tsx` : spec === "url" ? `file://${dir}/plugins/opencode-ghost/tui.tsx` : spec, { model: "openai/gpt-6-luna-fast", endpoint: "removed", apiKey: "fixture-only", internalSessionMarkerDir: "removed", argHints: {}, extra: true }], "other"] }) })
+      const run = sandbox({ tui: (dir) => ({ theme: "custom", plugin: [[spec === "absolute" ? `${dir}/plugins/opencode-ghost/tui.tsx` : spec === "url" ? `file://${dir}/plugins/opencode-ghost/tui.tsx` : spec, { model: "openai/gpt-6-luna-fast", endpoint: "removed", apiKey: "fixture-only", internalSessionMarkerDir: "removed", argHints: {}, backOnEmptyLeft: false, extra: true }], "other"] }) })
       expect(run.result.exitCode).toBe(0)
       expect(run.readCli().plugins[0].options).toEqual({ model: "openai/gpt-6-luna-fast", extra: true })
       expect(run.readTui()).toEqual({ theme: "custom", plugin: ["other"] })

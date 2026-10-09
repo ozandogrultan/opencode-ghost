@@ -22,24 +22,29 @@ export function acceptShortcuts(acceptKeys: readonly string[], shortcuts: (id: s
   }))
 }
 
+export function ghostBaseLayer(composerCommands: KeymapCommand[]): KeymapLayer {
+  return { mode: "base", priority: 2, commands: composerCommands }
+}
+
+export function ghostSuggestLayer(enabled: boolean, suggest: KeymapCommand["run"]): KeymapLayer {
+  return {
+    mode: "global",
+    commands: [{
+      id: "ghost.suggest",
+      title: `Prompt suggestions: ${enabled ? "on" : "off"}`,
+      description: "Toggle the suggested next prompt",
+      group: "Prompt",
+      palette: true,
+      slash: { name: "suggest", arguments: true },
+      run: suggest,
+    }],
+  }
+}
+
 export function ghostKeymapLayers(
   composerCommands: KeymapCommand[],
   enabled: boolean,
   suggest: KeymapCommand["run"],
 ): KeymapLayer[] {
-  return [
-    { mode: "base", priority: 2, commands: composerCommands },
-    {
-      mode: "global",
-      commands: [{
-        id: "ghost.suggest",
-        title: `Prompt suggestions: ${enabled ? "on" : "off"}`,
-        description: "Toggle the suggested next prompt",
-        group: "Prompt",
-        palette: true,
-        slash: { name: "suggest", arguments: true },
-        run: suggest,
-      }],
-    },
-  ]
+  return [ghostBaseLayer(composerCommands), ghostSuggestLayer(enabled, suggest)]
 }
