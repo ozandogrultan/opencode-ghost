@@ -46,6 +46,20 @@ describe("buildTranscript", () => {
     expect(buildTranscript(messages, 1)).not.toContain("first")
   })
 
+  test("keeps the end of long assistant messages and the start of long user messages", () => {
+    const long = `${"a".repeat(900)} Want me to proceed?`
+    const transcript = buildTranscript([
+      { type: "user", text: `start ${"b".repeat(900)}` },
+      { type: "assistant", content: [{ type: "text", text: long }] },
+    ], 10)
+    const [user, assistant] = transcript.split("\n")
+    expect(user!.startsWith("User: start b")).toBe(true)
+    expect(user!.endsWith("…")).toBe(true)
+    expect(assistant!.startsWith("Assistant: …")).toBe(true)
+    expect(assistant!.endsWith("Want me to proceed?")).toBe(true)
+    expect(assistant!.length).toBeLessThanOrEqual("Assistant: ".length + 800)
+  })
+
   test("returns empty string when there is nothing to say", () => {
     expect(buildTranscript([], 10)).toBe("")
     expect(buildTranscript([{ type: "user", text: "   " }], 10)).toBe("")

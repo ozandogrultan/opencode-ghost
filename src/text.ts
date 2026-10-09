@@ -92,6 +92,12 @@ export function clip(text: string, max: number): string {
   return value.slice(0, max - 1).trimEnd() + "…"
 }
 
+export function clipTail(text: string, max: number): string {
+  const value = collapse(text)
+  if (value.length <= max) return value
+  return "…" + value.slice(value.length - (max - 1)).trimStart()
+}
+
 export function normalize(raw: string, maxChars: number): string | undefined {
   const first = raw
     .split(/\r?\n/)

@@ -1,4 +1,4 @@
-import { clip } from "./text"
+import { clip, clipTail } from "./text"
 
 const MAX_MESSAGE_CHARS = 800
 const MAX_TRANSCRIPT_CHARS = 6000
@@ -25,7 +25,7 @@ export function buildTranscript(messages: readonly TranscriptMessage[], recentMe
   const entries = messages.map(messageText).filter((entry) => entry && entry.text.trim())
   for (const entry of entries.slice(-recentMessages)) {
     if (!entry) continue
-    lines.push(`${entry.role}: ${clip(entry.text, MAX_MESSAGE_CHARS)}`)
+    lines.push(`${entry.role}: ${(entry.role === "Assistant" ? clipTail : clip)(entry.text, MAX_MESSAGE_CHARS)}`)
   }
   if (lines.length === 0) return ""
   return `${lines.join("\n").slice(-MAX_TRANSCRIPT_CHARS)}\n\nTask: write the user's next message.`
