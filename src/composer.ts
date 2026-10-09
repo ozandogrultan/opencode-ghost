@@ -42,7 +42,7 @@ export function composerBlocker(editor: TextareaRenderable | undefined, mode: st
   const siblings = editor.parent.getChildren().filter((node) =>
     !node.id.startsWith("slot-layout-"),
   )
-  if (siblings.length !== 1 || siblings[0] !== editor) return `composer has ${siblings.length} sibling nodes (${siblings.map((node) => node.id || "?").join(", ")})`
+  if (siblings.length !== 2 || siblings[0] !== editor) return `composer has ${siblings.length} sibling nodes (${siblings.map((node) => node.id || "?").join(", ")})`
   if (!normal) return "prompt not in normal mode"
   if (mode !== "base") return `keymap mode is ${mode}`
   if (selected) return "renderer has a selection"

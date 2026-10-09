@@ -166,16 +166,21 @@ test("locateComposerEditor and composerBlocker name the reason a composer is ref
   const parent = { id: "prompt", isDestroyed: false, children: [] as unknown[], getChildren() { return this.children } }
   const editor = (over: Record<string, unknown> = {}) => {
     const value = { id: "editor", parent, isDestroyed: false, plainText: "", hasSelection: () => false, traits: {}, extmarks: { getAll: () => [] as unknown[] }, ...over }
-    parent.children = [value]
+    parent.children = [value, { id: "box-31" }]
     return value as never
   }
   expect(composerBlocker(undefined, "base", true, false)).toBe("no composer editor")
+  const alone = { id: "editor", parent, isDestroyed: false, plainText: "", hasSelection: () => false, traits: {}, extmarks: { getAll: () => [] as unknown[] } } as never
+  parent.children = [alone]
+  expect(composerBlocker(alone, "base", true, false)).toContain("1 sibling nodes")
+  parent.children = [{ id: "box-31" }, alone]
+  expect(composerBlocker(alone, "base", true, false)).toContain("2 sibling nodes")
   expect(composerBlocker(editor(), "base", true, false)).toBeUndefined()
   expect(composerBlocker(editor(), "base", false, false)).toBe("prompt not in normal mode")
   expect(composerBlocker(editor(), "shell", true, false)).toBe("keymap mode is shell")
   expect(composerBlocker(editor({ plainText: "x" }), "base", true, false)).toBe("composer not empty")
   expect(composerBlocker(editor({ extmarks: { getAll: () => [1] } }), "base", true, false)).toBe("editor has 1 extmark(s)")
   const crowded = editor()
-  parent.children = [crowded, { id: "extra" }]
-  expect(composerBlocker(crowded, "base", true, false)).toContain("2 sibling nodes")
+  parent.children = [crowded, { id: "box-31" }, { id: "extra" }]
+  expect(composerBlocker(crowded, "base", true, false)).toContain("3 sibling nodes")
 })
