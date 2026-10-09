@@ -58,6 +58,8 @@ describe("formatDiagnostic", () => {
     const failed = formatDiagnostic({ at: 0, sessionID: "s", outcome: "error", detail: "429 slow down" })
     expect(failed).toContain("error —")
     expect(failed.endsWith("\n  429 slow down")).toBe(true)
+    expect(formatDiagnostic({ at: 0, sessionID: "s", outcome: "hidden", detail: "composer not empty" })).toContain("hidden —\n  composer not empty")
+    expect(formatDiagnostic({ at: 0, sessionID: "s", outcome: "shown", chars: 9 })).toContain("shown — 9 chars")
   })
 })
 

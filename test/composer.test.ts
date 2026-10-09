@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
 import { InternalKeyHandler, KeyEvent } from "@opentui/core"
-import { canonicalKey, composerAction, findComposerEditor, keyName, observeComposerInput, type Editor, type EditorNode } from "../src/composer"
+import { canonicalKey, composerAction, composerBlocker, findComposerEditor, keyName, locateComposerEditor, observeComposerInput, type Editor, type EditorNode } from "../src/composer"
 import { createLifecycle } from "../src/lifecycle"
 
 test("input cancellation runs before consuming keymap listeners, aborts active generation and cleans up", async () => {
@@ -140,4 +140,42 @@ test("footer ancestry identifies only its own composer and refuses missing or am
   marker.isDestroyed = true
   expect(find()).toBeUndefined()
   expect(findComposerEditor(undefined, (item): item is Node => false, () => true)).toBeUndefined()
+})
+
+test("locateComposerEditor and composerBlocker name the reason a composer is refused", () => {
+  type Node = EditorNode & { editor?: boolean; composer?: boolean; children: Node[] }
+  const node = (editor = false, composer = false): Node => ({ parent: null, isDestroyed: false, editor, composer, children: [], getChildren() { return this.children } })
+  const attach = (parent: Node, ...children: Node[]) => { parent.children.push(...children); children.forEach((child) => { child.parent = parent }) }
+  const root = node()
+  const prompt = node()
+  const marker = node()
+  const target = node(true, true)
+  attach(root, prompt)
+  attach(prompt, marker, target)
+  const locate = (...args: [] | [Node | undefined]) => locateComposerEditor(args.length ? args[0] : marker, (item): item is Node => (item as Node).editor === true, (item) => item.composer === true)
+  expect(locate().editor).toBe(target)
+  expect(locate(undefined).reason).toContain("no prompt.footer marker")
+  target.composer = false
+  expect(locate().reason).toContain("getClipboardText")
+  target.composer = true
+  attach(prompt, node(true, true))
+  expect(locate().reason).toContain("2 editors")
+  marker.isDestroyed = true
+  expect(locate().reason).toContain("destroyed")
+
+  const parent = { id: "prompt", isDestroyed: false, children: [] as unknown[], getChildren() { return this.children } }
+  const editor = (over: Record<string, unknown> = {}) => {
+    const value = { id: "editor", parent, isDestroyed: false, plainText: "", hasSelection: () => false, traits: {}, extmarks: { getAll: () => [] as unknown[] }, ...over }
+    parent.children = [value]
+    return value as never
+  }
+  expect(composerBlocker(undefined, "base", true, false)).toBe("no composer editor")
+  expect(composerBlocker(editor(), "base", true, false)).toBeUndefined()
+  expect(composerBlocker(editor(), "base", false, false)).toBe("prompt not in normal mode")
+  expect(composerBlocker(editor(), "shell", true, false)).toBe("keymap mode is shell")
+  expect(composerBlocker(editor({ plainText: "x" }), "base", true, false)).toBe("composer not empty")
+  expect(composerBlocker(editor({ extmarks: { getAll: () => [1] } }), "base", true, false)).toBe("editor has 1 extmark(s)")
+  const crowded = editor()
+  parent.children = [crowded, { id: "extra" }]
+  expect(composerBlocker(crowded, "base", true, false)).toContain("2 sibling nodes")
 })

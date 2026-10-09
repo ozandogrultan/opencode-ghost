@@ -1,4 +1,4 @@
-export type DiagnosticOutcome = "ok" | "empty" | "echo" | "unavailable" | "error" | "aborted"
+export type DiagnosticOutcome = "ok" | "empty" | "echo" | "unavailable" | "error" | "aborted" | "shown" | "hidden"
 
 export type DiagnosticEntry = {
   readonly at: number
@@ -54,6 +54,8 @@ const OUTCOME_LABELS: Record<DiagnosticOutcome, string> = {
   unavailable: "no model",
   error: "error",
   aborted: "aborted",
+  shown: "shown",
+  hidden: "hidden",
 }
 
 function clockTime(at: number): string {

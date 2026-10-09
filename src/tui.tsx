@@ -2,7 +2,7 @@
 import { Plugin } from "@opencode/plugin/tui"
 import { TextareaRenderable, InputRenderable, type BoxRenderable, type Renderable } from "@opentui/core"
 import { createEffect, createMemo, createRoot, createSignal, on, onCleanup } from "solid-js"
-import { composerAction, findComposerEditor, isEligibleComposer, isEmptyComposer, keyName, observeComposerInput } from "./composer"
+import { composerAction, composerBlocker, isEmptyComposer, keyName, locateComposerEditor, observeComposerInput, type ComposerLookup } from "./composer"
 import { createDiagnostics, errorDetail, formatDiagnostic, formatDiagnostics, modelLabel, type DiagnosticEntry } from "./diagnostics"
 import { createLifecycle } from "./lifecycle"
 import { acceptCommand, acceptShortcuts, ghostKeymapLayers } from "./keymap"
@@ -14,8 +14,8 @@ import { buildTranscript, lastUserText, suggestionPrompt, type TranscriptMessage
 
 type Suggestion = { sessionID: string; text: string }
 
-function composerEditor(marker: Renderable | undefined): TextareaRenderable | undefined {
-  return findComposerEditor(marker,
+function lookupComposer(marker: Renderable | undefined): ComposerLookup<TextareaRenderable> {
+  return locateComposerEditor(marker,
     (node): node is TextareaRenderable => node instanceof TextareaRenderable && !(node instanceof InputRenderable),
     (editor) => typeof (editor as unknown as { getClipboardText?: unknown }).getClipboardText === "function",
   )
@@ -160,7 +160,38 @@ export default Plugin.define({
 
     const getComposer = (sessionID: string) => {
       const entry = composers.get(sessionID)
-      return { editor: composerEditor(entry?.marker), normal: entry?.normal() === true }
+      return { editor: lookupComposer(entry?.marker).editor, normal: entry?.normal() === true }
+    }
+
+    const displayLog = createDiagnostics()
+    let lastDisplay: string | undefined
+
+    const displayStatus = (current: Suggestion): string => {
+      if (!canGenerate(current.sessionID)) return "session busy, hidden or suggestions disabled"
+      const entry = composers.get(current.sessionID)
+      const found = lookupComposer(entry?.marker)
+      if (!found.editor) return found.reason
+      const blocker = composerBlocker(found.editor, context.keymap.mode.current(), entry?.normal() === true, context.renderer.hasSelection)
+      if (blocker) return blocker
+      return inline.visible(found.editor, current.text) ? "shown" : "placeholder not applied (host overrode it)"
+    }
+
+    const trackDisplay = () => {
+      const current = suggestion()
+      if (!current) {
+        lastDisplay = undefined
+        return
+      }
+      const status = displayStatus(current)
+      if (status === lastDisplay) return
+      lastDisplay = status
+      const recorded = displayLog.record({
+        sessionID: current.sessionID,
+        outcome: status === "shown" ? "shown" : "hidden",
+        chars: current.text.length,
+        ...(status === "shown" ? {} : { detail: status }),
+      })
+      if (state.debug === true) context.ui.toast.show({ title: "Ghost", message: formatDiagnostic(recorded) })
     }
 
     const isComposerEmpty = (sessionID: string) => {
@@ -172,7 +203,8 @@ export default Plugin.define({
       composerRevision()
       const current = suggestion()
       const { editor, normal } = current ? getComposer(current.sessionID) : { editor: undefined, normal: false }
-      inline.sync(editor, current?.text, ghostColor(), !!current && canGenerate(current.sessionID) && isEligibleComposer(editor, context.keymap.mode.current(), normal, context.renderer.hasSelection))
+      inline.sync(editor, current?.text, ghostColor(), !!current && canGenerate(current.sessionID) && !composerBlocker(editor, context.keymap.mode.current(), normal, context.renderer.hasSelection))
+      trackDisplay()
     }
 
     const disposeRouteWatcher = createRoot((dispose) => {
@@ -231,9 +263,22 @@ export default Plugin.define({
             if (command.type === "log") {
               const override = state.model ?? opts.model
               const summary = `suggestions ${state.enabled ? "on" : "off"}, debug ${state.debug === true ? "on" : "off"}, model ${override ?? "OpenCode small default"}`
+              const current = suggestion()
+              const color = ghostColor()
+              const route = context.ui.router.current()
+              const entry = route.type === "session" ? composers.get(route.sessionID) : undefined
+              const editor = lookupComposer(entry?.marker).editor
+              const live = [
+                `route ${route.type}`,
+                `suggestion ${current ? `retained (${current.text.length} chars)` : "none"}`,
+                `display ${current ? displayStatus(current) : "n/a"}`,
+                `focused ${editor ? (editor === context.renderer.currentFocusedEditor && editor.focused ? "yes" : "no") : "n/a"}`,
+                `mode ${context.keymap.mode.current()}`,
+                `color rgba(${[color.r, color.g, color.b, color.a].map((value) => value.toFixed(2)).join(", ")})`,
+              ].join("\n")
               void context.ui.dialog.alert({
-                title: "Ghost — recent generations",
-                message: `${summary}\n\n${formatDiagnostics(diagnostics.list())}`,
+                title: "Ghost — diagnostics",
+                message: `${summary}\n\nNow\n${live}\n\nDisplay changes\n${displayLog.list().length ? formatDiagnostics(displayLog.list()) : "None recorded yet."}\n\nGenerations\n${formatDiagnostics(diagnostics.list())}`,
               })
               return
             }

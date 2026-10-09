@@ -36,24 +36,45 @@ export function isEmptyComposer(editor: TextareaRenderable | undefined, focused:
   return !!editor && editor === focused && editor.focused && isEligibleComposer(editor, mode, normal, selected)
 }
 
-export function isEligibleComposer(editor: TextareaRenderable | undefined, mode: string, normal: boolean, selected: boolean): boolean {
-  if (!editor?.parent || editor.parent.isDestroyed) return false
+export function composerBlocker(editor: TextareaRenderable | undefined, mode: string, normal: boolean, selected: boolean): string | undefined {
+  if (!editor) return "no composer editor"
+  if (!editor.parent || editor.parent.isDestroyed) return "editor detached"
   const siblings = editor.parent.getChildren().filter((node) =>
     !node.id.startsWith("slot-layout-"),
   )
-  if (siblings.length !== 1 || siblings[0] !== editor) return false
-  return normal && mode === "base" && !selected && !editor.isDestroyed && editor.plainText === "" && !editor.hasSelection() && !editor.traits.capture?.includes("navigate") && editor.extmarks.getAll().length === 0
+  if (siblings.length !== 1 || siblings[0] !== editor) return `composer has ${siblings.length} sibling nodes (${siblings.map((node) => node.id || "?").join(", ")})`
+  if (!normal) return "prompt not in normal mode"
+  if (mode !== "base") return `keymap mode is ${mode}`
+  if (selected) return "renderer has a selection"
+  if (editor.isDestroyed) return "editor destroyed"
+  if (editor.plainText !== "") return "composer not empty"
+  if (editor.hasSelection()) return "editor has a selection"
+  if (editor.traits.capture?.includes("navigate")) return "editor captures navigation"
+  const marks = editor.extmarks.getAll().length
+  if (marks !== 0) return `editor has ${marks} extmark(s)`
+}
+
+export function isEligibleComposer(editor: TextareaRenderable | undefined, mode: string, normal: boolean, selected: boolean): boolean {
+  return composerBlocker(editor, mode, normal, selected) === undefined
+}
+
+export type ComposerLookup<T> = { editor: T; reason?: undefined } | { editor?: undefined; reason: string }
+
+export function locateComposerEditor<T extends EditorNode>(marker: EditorNode | undefined, isEditor: (node: EditorNode) => node is T, isComposer: (editor: T) => boolean): ComposerLookup<T> {
+  if (!marker) return { reason: "no prompt.footer marker registered" }
+  if (marker.isDestroyed) return { reason: "prompt.footer marker destroyed" }
+  const editors = (node: EditorNode): T[] => isEditor(node) ? [node] : node.getChildren().flatMap(editors)
+  for (let node = marker.parent; node && node.parent; node = node.parent) {
+    if (node.isDestroyed) return { reason: "marker ancestor destroyed" }
+    const found = editors(node)
+    if (found.length > 1) return { reason: `${found.length} editors share the marker ancestor` }
+    if (found.length === 1) return isComposer(found[0]) ? { editor: found[0] } : { reason: "editor lacks getClipboardText (not the host composer)" }
+  }
+  return { reason: "no editor found above the marker" }
 }
 
 export function findComposerEditor<T extends EditorNode>(marker: EditorNode | undefined, isEditor: (node: EditorNode) => node is T, isComposer: (editor: T) => boolean): T | undefined {
-  if (!marker || marker.isDestroyed) return
-  const editors = (node: EditorNode): T[] => isEditor(node) ? [node] : node.getChildren().flatMap(editors)
-  for (let node = marker.parent; node && node.parent; node = node.parent) {
-    if (node.isDestroyed) return
-    const found = editors(node)
-    if (found.length > 1) return
-    if (found.length === 1) return isComposer(found[0]) ? found[0] : undefined
-  }
+  return locateComposerEditor(marker, isEditor, isComposer).editor
 }
 
 export function composerAction(editor: Editor | undefined, focused: () => unknown, mode: string, normal: boolean, allowed: boolean, text: string | undefined): boolean {

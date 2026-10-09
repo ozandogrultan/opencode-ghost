@@ -158,6 +158,15 @@ be traced to a debounce, an empty or `NONE` reply, an echo filter, or a provider
 error. `/suggest debug` toggles the same data as a toast on each attempt (aborts
 are logged but not toasted). The history is not written to disk.
 
+When a generation is `ok` but nothing is visible, `/suggest log` also shows the
+live display state and a bounded history of display changes. Each `shown` or
+`hidden` entry names the reason the placeholder is not applied: no
+`prompt.footer` marker, an unidentified or ambiguous editor, extra sibling nodes in
+the composer, a non-normal prompt or keymap mode, a draft, selection, extmarks,
+a busy or hidden session, or the host overriding the placeholder. The live
+section also reports focus, keymap mode and the placeholder colour. With
+`/suggest debug` on, each change is toasted.
+
 ## Caveats
 
 - **No inline typing completions.** V1's slash-argument and history ghosts
