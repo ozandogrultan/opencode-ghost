@@ -123,9 +123,13 @@ export async function resolveExplicitModel(
 ): Promise<SuggestionModel | undefined> {
   if (signal.aborted) return undefined
   if (model.variant) return model
-  const listed = await catalog.list(location, signal)
-  if (signal.aborted) return undefined
-  return withLowEffortVariant(model, listed.models.find((info) => info.providerID === model.providerID && info.id === model.modelID))
+  try {
+    const listed = await catalog.list(location, signal)
+    if (signal.aborted) return undefined
+    return withLowEffortVariant(model, listed.models.find((info) => info.providerID === model.providerID && info.id === model.modelID))
+  } catch {
+    return signal.aborted ? undefined : model
+  }
 }
 
 const LOW_EFFORT_VARIANTS = ["none", "minimal", "low"]

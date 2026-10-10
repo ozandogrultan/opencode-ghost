@@ -257,3 +257,18 @@ test("a fresh catalog failure is not retried and aborted fetches are not cached"
   await expect(failing.list(location, signal())).rejects.toThrow("offline")
   await expect(failing.list(location, signal())).rejects.toThrow("offline")
 })
+
+test("an explicit model remains usable when the model catalog fails", async () => {
+  const { api, calls } = client()
+  api.model.list = async () => { throw new Error("offline") }
+  const explicit = { providerID: "primary", modelID: "chosen" }
+  expect(await resolveExplicitModel(api, location, signal(), explicit)).toEqual(explicit)
+  expect(calls).toEqual([])
+})
+
+test("an aborted explicit catalog failure does not resolve a model", async () => {
+  const { api } = client()
+  const controller = new AbortController()
+  api.model.list = async () => { controller.abort(); throw new Error("cancelled") }
+  expect(await resolveExplicitModel(api, location, controller.signal, { providerID: "primary", modelID: "chosen" })).toBeUndefined()
+})

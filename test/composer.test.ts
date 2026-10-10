@@ -54,6 +54,18 @@ test("eligible configured accept keys survive pre-dispatch observation; editing 
   off()
 })
 
+test("undo and redo cancel pending generation before the host handles them", () => {
+  const input = new InternalKeyHandler()
+  let cancelled = 0
+  const off = observeComposerInput(input, () => false, () => { cancelled++ })
+  for (const [name, ctrl, superKey, shift] of [["-", true, false, false], [".", true, false, false], ["z", false, true, false], ["z", false, true, true]] as const) {
+    input.emit("keypress", new KeyEvent({ name, ctrl, super: superKey, shift, meta: false, option: false, sequence: name, raw: name, number: false, eventType: "press", source: "raw" }))
+    expect(removesOnly({ name, ctrl, super: superKey, meta: false })).toBe(false)
+  }
+  expect(cancelled).toBe(4)
+  off()
+})
+
 test("navigation and non-text keys leave the suggestion and generation untouched", () => {
   const input = new InternalKeyHandler()
   let cancelled = 0

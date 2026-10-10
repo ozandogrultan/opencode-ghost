@@ -14,10 +14,11 @@ behaviour.
   `session.execution.succeeded` hook, generation, the footer marker, and
   the accept keymap.
 - `src/options.ts`, `src/text.ts`, `src/transcript.ts`, `src/stateless.ts`,
-  `src/composer.ts`, `src/lifecycle.ts`, `src/placeholder.ts`, `src/keymap.ts` —
+  `src/composer.ts`, `src/lifecycle.ts`, `src/placeholder.ts`, `src/keymap.ts`,
+  `src/diagnostics.ts` —
   helpers (option parsing/validation, text normalization and model resolution
   in `src/text.ts`, transcript building, the `generate.text` call, keymap layers).
-- `test/` — bun tests (`bun test`).
+- `test/` — bun tests (`bun test`); `bunfig.toml` preloads OpenTUI's reactive Solid build.
 - `tests/changelog.sh`, `scripts/changelog.sh` — release bookkeeping.
 - `install.sh` — copies the plugin into opencode's config and registers it in
   `cli.json` by directory, migrating an old v1 `tui.json` registration if found.

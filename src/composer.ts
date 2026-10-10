@@ -1,7 +1,8 @@
 import type { KeyEvent, KeyHandler, TextareaRenderable } from "@opentui/core"
 
 export function editsComposer(event: { name: string; sequence: string; ctrl: boolean; meta: boolean; option?: boolean; super?: boolean; hyper?: boolean }): boolean {
-  if (event.ctrl && !event.meta && !event.option && !event.super && !event.hyper) return ["v", "h", "d", "k", "u", "w", "j", "m"].includes(event.name)
+  if (event.ctrl && !event.meta && !event.option && !event.super && !event.hyper) return ["v", "h", "d", "k", "u", "w", "j", "m", "-", "."].includes(event.name)
+  if (event.super && !event.ctrl && !event.meta && !event.option && !event.hyper && event.name === "z") return true
   if (event.ctrl || event.meta || event.option || event.super || event.hyper) return false
   if (["return", "enter", "linefeed", "backspace", "delete", "space"].includes(event.name)) return true
   return [...event.sequence].length === 1 && !/[\u0000-\u001f\u007f]/.test(event.sequence)

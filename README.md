@@ -87,7 +87,7 @@ copy, use `/absolute/path/to/config/plugins/opencode-ghost`.
 | ---------------- | ---------- | ------------------- | ------------------------------------------------------------- |
 | `enabled`        | `boolean`  | `true`              | Initial state; `/suggest` toggles it at runtime (persisted).  |
 | `model`          | `string`   | OpenCode small default | Explicit `provider/model` override. Otherwise uses the effective title-agent model or OpenCode's small-model selection policy. |
-| `acceptKeys`     | `string[]` | `["tab", "right"]`  | Key names as reported by the terminal (`tab`, `right`, ...). Modifier aliases (`meta`, `option`, `cmd`, `control`) are normalised; unknown modifiers are ignored. |
+| `acceptKeys`     | `string[]` | `["tab", "right"]`  | Key names as reported by the terminal (`tab`, `right`, ...). Modifier aliases (`meta`, `option`, `cmd`, `control`) are normalised; keys with unknown modifiers are ignored. |
 | `maxChars`       | `number`   | `120`               | Maximum suggestion length.                                     |
 | `idleDelayMs`    | `number`   | `500`               | Debounce after a turn finishes before generating.               |
 | `recentMessages` | `number`   | `10`                | How many recent messages feed the suggestion prompt.            |
@@ -143,7 +143,7 @@ When enabling, a suggestion is generated immediately for the current session.
   ownership. Host hint/color updates are retained while the ghost is visible;
   dismissal restores only values still owned by Ghost, including rich hints.
 - Accepting uses the composer editor's `insertText` directly, without submitting.
-- Typing, pasting, navigation, a new execution, disabling and unloading cancel
+- Typing, pasting, undo/redo, leaving the session, a new execution, disabling and unloading cancel
   pending generation. Duplicate completion events do not generate again.
 - Retains only one suggestion, bounded by `maxChars`, for the visible session.
   Acceptance, a new turn, session changes, disabling, model changes and unloading

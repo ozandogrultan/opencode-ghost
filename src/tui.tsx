@@ -42,7 +42,7 @@ export default Plugin.define({
     const [suggestion, setSuggestion] = createSignal<Suggestion | undefined>()
     const [composerRevision, setComposerRevision] = createSignal(0)
     const inline = createInlinePlaceholder()
-    const ghostColor = createMemo(() => dimPlaceholderColor(context.theme.text.muted))
+    let ghostColor: () => ReturnType<typeof dimPlaceholderColor>
     const diagnostics = createDiagnostics()
     const catalog = createCatalog(context.client)
 
@@ -55,6 +55,7 @@ export default Plugin.define({
     }
 
     let disposed = false
+    let syncWarned = false
     const composers = new Map<string, { marker: BoxRenderable; normal: () => boolean }>()
 
     const isCurrentSession = (sessionID: string) => {
@@ -81,8 +82,10 @@ export default Plugin.define({
       const elapsed = () => Date.now() - started
       let model: SuggestionModel | undefined
       let failure: unknown
+      let syncing = true
       try {
         await context.data.session.message.sync(sessionID)
+        syncing = false
         if (signal.aborted || !canGenerate(sessionID)) return
         const messages = context.data.session.message.list(sessionID) as readonly TranscriptMessage[]
         const transcript = buildTranscript(messages, opts.recentMessages)
@@ -104,10 +107,7 @@ export default Plugin.define({
           () => canGenerate(sessionID),
         )
         const label = modelLabel(model)
-        if (signal.aborted) {
-          note({ sessionID, outcome: "aborted", model: label, durationMs: elapsed() })
-          return
-        }
+        if (signal.aborted) return
         if (failure) {
           note({ sessionID, outcome: "error", model: label, durationMs: elapsed(), detail: errorDetail(failure) })
           return
@@ -132,7 +132,12 @@ export default Plugin.define({
         note({ sessionID, outcome: "ok", model: label, durationMs: elapsed(), chars: clean.length })
       } catch (error) {
         if (signal.aborted) return
-        warnGeneration(error)
+        if (syncing) {
+          if (!disposed && !syncWarned) {
+            syncWarned = true
+            context.ui.toast.show({ title: "Ghost", message: "Suggestions unavailable: session messages could not sync.", variant: "warning" })
+          }
+        } else warnGeneration(error)
         note({
           sessionID,
           outcome: isNoSmallModel(error) ? "unavailable" : "error",
@@ -140,6 +145,8 @@ export default Plugin.define({
           durationMs: elapsed(),
           detail: errorDetail(error),
         })
+      } finally {
+        if (signal.aborted) note({ sessionID, outcome: "aborted", ...(model ? { model: modelLabel(model) } : {}), durationMs: elapsed() })
       }
     }
 
@@ -218,6 +225,7 @@ export default Plugin.define({
     }
 
     const disposeRouteWatcher = createRoot((dispose) => {
+      ghostColor = createMemo(() => dimPlaceholderColor(context.theme.text.muted))
       createEffect(on(() => {
         const route = context.ui.router.current()
         return route.type === "session" ? route.sessionID : route.type

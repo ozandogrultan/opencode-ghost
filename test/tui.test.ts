@@ -37,8 +37,11 @@ function makeClient() {
 
 function makeContext() {
   const [routeSignal, setRouteSignal] = createSignal<Route>({ type: "session", sessionID: "session-a" })
+  const [muted, setMuted] = createSignal({ r: 0.5, g: 0.5, b: 0.5, a: 1 })
+  let themeReads = 0
   const listeners = new Map<string, Set<(event: any) => void>>()
   const alerts: { title: string; message: string }[] = []
+  const toasts: { message: string; variant?: string }[] = []
   const commands = new Map<string, { run: (input?: string) => unknown }>()
   const sessions = new Map<string, { status: "idle" | "running"; messages: { type: string; text: string }[] }>([
     ["session-a", { status: "idle", messages: [{ type: "user", text: "please add a test" }] }],
@@ -86,7 +89,7 @@ function makeContext() {
       setFrameCallback: (callback: (delta: number) => Promise<void>) => { frameCallback = callback },
       removeFrameCallback: (callback: (delta: number) => Promise<void>) => { if (callback === frameCallback) frameCallbackRemoved = true },
     },
-    theme: { text: { muted: { r: 0.5, g: 0.5, b: 0.5, a: 1 } } },
+    theme: { text: { get muted() { themeReads++; return muted() } } },
     storage: {
       store: (_key: string, { initial }: { initial: object }) => {
         const [store, setStore] = createStore(initial)
@@ -94,7 +97,7 @@ function makeContext() {
       },
     },
     ui: {
-      toast: { show: () => {} },
+      toast: { show: (input: { message: string; variant?: string }) => { toasts.push(input) } },
       dialog: { alert: async (input: { title: string; message: string }) => { alerts.push(input) } },
       router: { current: () => routeSignal() },
       slot: (claim: unknown) => { slotClaims.push(claim); return () => { slotUnregistered++ } },
@@ -108,6 +111,10 @@ function makeContext() {
     lastAlert: () => alerts.at(-1),
     dispatchSuggest: async (input?: string) => { await commands.get("ghost.suggest")!.run(input) },
     clientState,
+    messages: context.data.session.message,
+    toasts,
+    setMuted,
+    themeReads: () => themeReads,
     frame: { get callback() { return frameCallback }, get removed() { return frameCallbackRemoved } },
     slots: { claims: slotClaims, get unregistered() { return slotUnregistered } },
     listenerCount: (type: string) => listeners.get(type)?.size ?? 0,
@@ -123,7 +130,7 @@ function boot() {
     const result = plugin.setup(harness.context)
     cleanup = typeof result === "function" ? result : undefined
   })
-  return { ...harness, unload: () => { cleanup?.(); disposeRoot() } }
+  return { ...harness, unloadPlugin: () => cleanup?.(), unload: () => { cleanup?.(); disposeRoot() } }
 }
 
 test("a succeeded turn produces a suggestion via the stubbed generation client", async () => {
@@ -138,12 +145,13 @@ test("a succeeded turn produces a suggestion via the stubbed generation client",
   }
 })
 
-test("aborting mid model-resolution or mid generation leaves no suggestion", async () => {
-  for (const stage of ["resolution", "generation"] as const) {
+test("aborting during sync, model resolution or generation logs cancellation and leaves no suggestion", async () => {
+  for (const stage of ["sync", "sync-error", "resolution", "resolution-error", "generation"] as const) {
     const harness = boot()
     try {
       const gate = deferred<void>()
-      if (stage === "resolution") harness.clientState.modelList = async () => { await gate.promise; return { data: [stubModel] } }
+      if (stage === "sync" || stage === "sync-error") harness.messages.sync = async () => { await gate.promise; if (stage === "sync-error") throw new Error("cancelled sync") }
+      else if (stage === "resolution" || stage === "resolution-error") harness.clientState.modelList = async () => { await gate.promise; if (stage === "resolution-error") throw new Error("cancelled resolution"); return { data: [stubModel] } }
       else harness.clientState.generateText = async () => { await gate.promise; return { text: "run the new test suite" } }
       harness.emit("session.execution.succeeded", { id: `evt-${stage}`, data: { sessionID: "session-a" } })
       await tick(30)
@@ -152,6 +160,8 @@ test("aborting mid model-resolution or mid generation leaves no suggestion", asy
       await tick(30)
       await harness.dispatchSuggest("log")
       expect(harness.lastAlert()?.message).toContain("suggestion none")
+      expect(harness.lastAlert()?.message).toContain("aborted")
+      expect(harness.toasts).toHaveLength(0)
     } finally {
       harness.unload()
     }
@@ -241,4 +251,41 @@ test("unload removes event listeners, the frame callback and the composer slot",
   expect(harness.listenerCount("session.execution.started")).toBe(0)
   expect(harness.frame.removed).toBe(true)
   expect(harness.slots.unregistered).toBe(1)
+})
+
+test("plugin unload disposes the theme memo without disposing its host owner", () => {
+  const harness = boot()
+  try {
+    harness.setMuted({ r: 0.4, g: 0.4, b: 0.4, a: 1 })
+    harness.unloadPlugin()
+    const reads = harness.themeReads()
+    harness.setMuted({ r: 0.3, g: 0.3, b: 0.3, a: 1 })
+    expect(harness.themeReads()).toBe(reads)
+  } finally {
+    harness.unload()
+  }
+})
+
+test("sync failures warn separately without consuming the model warning", async () => {
+  const harness = boot()
+  try {
+    harness.messages.sync = async () => { throw new Error("offline") }
+    for (const id of ["sync-1", "sync-2"]) {
+      harness.emit("session.execution.succeeded", { id, data: { sessionID: "session-a" } })
+      await tick(30)
+    }
+    expect(harness.toasts).toHaveLength(1)
+    expect(harness.toasts[0]?.message).toContain("sync")
+    expect(harness.toasts[0]?.message).not.toContain("/suggest model")
+    await harness.dispatchSuggest("log")
+    expect(harness.lastAlert()?.message).toContain("offline")
+    harness.messages.sync = async () => {}
+    harness.clientState.generateText = async () => { throw new Error("unsupported model") }
+    harness.emit("session.execution.succeeded", { id: "model-1", data: { sessionID: "session-a" } })
+    await tick(30)
+    expect(harness.toasts).toHaveLength(2)
+    expect(harness.toasts[1]?.message).toContain("/suggest model")
+  } finally {
+    harness.unload()
+  }
 })
