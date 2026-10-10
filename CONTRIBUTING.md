@@ -12,8 +12,7 @@ bun install
 ```
 
 There is no build step. `src/` holds the V2 plugin and its pure helpers,
-`test/`
-holds the bun tests, `tests/changelog.sh` and `scripts/changelog.sh` own the
+`test/` holds the bun tests, `tests/changelog.sh` and `scripts/changelog.sh` own the
 release bookkeeping, and `opencode` transpiles the TSX source at load time.
 
 ## Before you open a PR
@@ -24,9 +23,10 @@ Run the full check suite and make sure it passes:
 bun run test         # bun test plus the changelog-tooling tests
 bun run typecheck    # tsc --noEmit
 bun run lint:sh      # bash -n on every script
+bash scripts/changelog.sh check
 ```
 
-CI runs the same checks plus ShellCheck on the scripts.
+CI also runs ShellCheck at error severity, `npm pack --dry-run`, and commitlint.
 
 ## Guidelines
 
@@ -71,10 +71,10 @@ This project follows [Conventional Commits](https://www.conventionalcommits.org/
 Examples:
 
 ```text
-feat(completion): ghost slash-command arguments
+feat(tui): add suggestion diagnostics
 fix(tui): stop capturing tab when the prompt is not empty
 docs: document the caveats
-feat!: drop support for opencode < 1.18
+feat!: require opencode v2
 ```
 
 This is enforced locally by Git hooks that `bun install` installs (via husky):
@@ -99,7 +99,8 @@ Write Conventional Commits for notable changes. A release with no notable
 commits since the previous tag is a no-op; pushing a tag by hand still works,
 and a tag without a matching section uses GitHub-generated notes.
 
-`scripts/changelog.sh` performs the same steps locally:
+`scripts/changelog.sh` handles changelog drafting, editing and extraction locally;
+it does not bump the package version, commit, tag or publish:
 
 ```bash
 scripts/changelog.sh draft          # classify commits since the last tag (prints only)
@@ -113,10 +114,11 @@ scripts/changelog.sh check          # structure: headings and compare links
 released heading needs its link definition. See [RELEASING.md](RELEASING.md)
 for the npm trusted-publisher setup.
 
-## Reporting bugs and requesting features
+## Reporting bugs
 
 Use the issue templates. For bugs, include your OS, `opencode` version, and the
-steps to reproduce.
+steps to reproduce. Include the suggestion model/provider and relevant
+`/suggest log` output for generation or display failures; redact private details.
 
 ## Security
 

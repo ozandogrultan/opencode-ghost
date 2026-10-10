@@ -17,8 +17,10 @@ From the Actions tab (**Release → Run workflow**) or:
 gh workflow run release.yml -f bump=patch   # or minor / major
 ```
 
-That workflow checks out `main`, bumps the version, commits and tags it,
-pushes, publishes to npm, and cuts the GitHub release with generated notes.
+That workflow checks out `main`, drafts notable commits, bumps the version,
+writes the dated changelog section, commits and tags it, pushes, publishes to
+npm, and cuts the GitHub release using that section as its notes. It does
+nothing when there are no notable commits since the last release.
 
 Do this from a green `main` — it releases whatever is there.
 
@@ -27,10 +29,22 @@ Do this from a green `main` — it releases whatever is there.
 If you prefer to bump locally:
 
 ```bash
-npm version minor          # patch / minor / major per the commit types
-git push --follow-tags     # the tag push triggers the same release workflow
+npm version minor --no-git-tag-version
+bun install
+version=$(node -p "require('./package.json').version")
+bash scripts/changelog.sh release "$version"
+bash scripts/changelog.sh check
+bun run test && bun run typecheck && bun run lint:sh
+git add package.json bun.lock CHANGELOG.md
+git commit -m "chore(release): $version"
+git tag -a "v$version" -m "v$version"
+git push --follow-tags
 ```
 
+Choose `patch`, `minor` or `major` from the commit types. The tag push runs tests
+and typecheck, publishes only if that version is not already on npm, and creates
+or updates the GitHub release. It uses the matching changelog section, falling
+back to GitHub-generated notes when creating a release without a usable section.
 `prepublishOnly` runs the tests and typecheck again before uploading.
 
 ## Before you release
@@ -63,7 +77,8 @@ Renaming that workflow file breaks publishing; update the npm setting too.
 
 - npm: `npm view opencode-ghost version` and
   `npm view opencode-ghost dist.attestations` (provenance present).
-- GitHub: a release exists for the tag, with generated notes.
+- GitHub: a release exists for the tag, with notes from the matching changelog
+  section (or generated notes for a tag without a usable section).
 
 ## Manual fallback
 

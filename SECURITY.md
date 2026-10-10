@@ -4,8 +4,10 @@
 
 `ghost` is published to npm (`opencode-ghost`) and developed on `main`. Only the
 latest release and the tip of `main` are supported; there are no maintained
-release branches or backports. Upgrade to the latest version (`npm install -g
-opencode-ghost` or a fresh `git pull`) before reporting an issue.
+release branches or backports. Before reporting an issue, update your checkout
+with `git pull`, rerun `./install.sh` if you use the installed copy, and restart
+OpenCode. For a manual registration pointing at the checkout's `src`, pulling
+and restarting is sufficient. See [installation](README.md#install).
 
 ## Reporting a vulnerability
 

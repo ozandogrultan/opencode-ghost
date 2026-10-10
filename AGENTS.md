@@ -21,7 +21,8 @@ behaviour.
 - `test/` — bun tests (`bun test`); `bunfig.toml` preloads OpenTUI's reactive Solid build.
 - `tests/changelog.sh`, `scripts/changelog.sh` — release bookkeeping.
 - `install.sh` — copies the plugin into opencode's config and registers it in
-  `cli.json` by directory, migrating an old v1 `tui.json` registration if found.
+  `cli.json` by directory, migrating old v1 `tui.json`/`tui.jsonc` registrations
+  if found. Supports explicit config directories and `--all`.
 
 ## Commands
 
@@ -30,6 +31,7 @@ bun install
 bun run test        # bun test + changelog tooling
 bun run typecheck   # tsc --noEmit
 bun run lint:sh     # bash -n on the scripts
+bash scripts/changelog.sh check
 ```
 
 ## Hard-won rules — do not regress
@@ -46,6 +48,10 @@ bun run lint:sh     # bash -n on the scripts
   effective public title-agent model, then the host's same-provider small-model
   family policy. Never call generation without a resolved model or fall back to
   the main model/another provider. Recheck cancellation and route after resolution.
+- **Diagnostics stay bounded.** Retain at most 20 generation outcomes and 20
+  display changes in memory. `/suggest log` shows both in a centered, scrollable
+  dialog; `/suggest debug` persists toast verbosity. Include reached-stage
+  timings, but never persist diagnostic history.
 - **Direct insertion, no clipboard.** Identify the editor through a session-scoped `prompt.footer`
   marker and public renderer ancestry, checking the host composer's clipboard
   expansion method as an identity guard. The host textarea has no explicit ID.
@@ -75,7 +81,9 @@ bun run lint:sh     # bash -n on the scripts
 ## Verifying
 
 ```bash
+bun install
 bun run test && bun run typecheck && bun run lint:sh
+bash scripts/changelog.sh check
 ```
 
 ## Conventions

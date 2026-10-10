@@ -15,6 +15,7 @@ Closes #
 
 - [ ] `bun run test` passes.
 - [ ] `bun run typecheck` passes.
+- [ ] `bun run lint:sh` and `bash scripts/changelog.sh check` pass.
 - [ ] Read the "Caveats" section of the README; this change does not regress the
-      `session_prompt` slot or the accept-key behaviour.
-- [ ] I updated the docs (README / CHANGELOG) where behaviour changed.
+      `prompt.footer` composer marker, placeholder ownership or scoped accept-key behaviour.
+- [ ] I updated the docs where behaviour changed; released changelog entries remain unchanged.

@@ -5,10 +5,11 @@ body:
   - type: markdown
     attributes:
       value: |
-        Before filing, please read [AGENTS.md](../blob/main/AGENTS.md) and the
-        "Caveats" section of the [README](../blob/main/README.md) — the plugin
-        owns the `session_prompt` slot and captures `tab`/`→` while a suggestion
-        is visible. Requests that fit the existing direction are easiest to
+        Before filing, please read [AGENTS.md](https://github.com/ozandogrultan/opencode-ghost/blob/main/AGENTS.md) and the
+        "Caveats" section of the [README](https://github.com/ozandogrultan/opencode-ghost/blob/main/README.md) — the plugin
+        owns only the empty composer's placeholder and captures `Tab`/`→` only
+        for an eligible, visible suggestion in the focused composer.
+        Requests that fit the existing direction are easiest to
         accept.
   - type: textarea
     id: problem
