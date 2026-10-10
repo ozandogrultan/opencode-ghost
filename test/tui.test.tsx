@@ -1,5 +1,6 @@
 import { expect, spyOn, test } from "bun:test"
-import { InternalKeyHandler } from "@opentui/core"
+import { InternalKeyHandler, ScrollBoxRenderable, TextRenderable } from "@opentui/core"
+import { testRender, type JSX } from "@opentui/solid"
 import { createRoot, createSignal } from "solid-js"
 import { createStore, produce } from "solid-js/store"
 import type { Context } from "@opencode/plugin/tui/context"
@@ -35,12 +36,15 @@ function makeClient() {
   return { client, state }
 }
 
-function makeContext() {
+function makeContext(width: number, height: number) {
   const [routeSignal, setRouteSignal] = createSignal<Route>({ type: "session", sessionID: "session-a" })
   const [muted, setMuted] = createSignal({ r: 0.5, g: 0.5, b: 0.5, a: 1 })
   let themeReads = 0
   const listeners = new Map<string, Set<(event: any) => void>>()
   const alerts: { title: string; message: string }[] = []
+  let dialogRender: (() => JSX.Element) | undefined
+  let dialogView: Awaited<ReturnType<typeof testRender>> | undefined
+  let dialogOptions: { size?: string; centered?: boolean } = {}
   const toasts: { message: string; variant?: string }[] = []
   const commands = new Map<string, { run: (input?: string) => unknown }>()
   const sessions = new Map<string, { status: "idle" | "running"; messages: { type: string; text: string }[] }>([
@@ -98,7 +102,12 @@ function makeContext() {
     },
     ui: {
       toast: { show: (input: { message: string; variant?: string }) => { toasts.push(input) } },
-      dialog: { alert: async (input: { title: string; message: string }) => { alerts.push(input) } },
+      dialog: {
+        alert: async (input: { title: string; message: string }) => { alerts.push(input) },
+        set: (options: typeof dialogOptions) => { dialogOptions = options },
+        show: (render: () => JSX.Element) => { dialogRender = render },
+        clear: () => { dialogView?.renderer.destroy(); dialogView = undefined },
+      },
       router: { current: () => routeSignal() },
       slot: (claim: unknown) => { slotClaims.push(claim); return () => { slotUnregistered++ } },
     },
@@ -109,7 +118,23 @@ function makeContext() {
     setRoute: setRouteSignal,
     emit: (type: string, event: unknown) => { for (const handler of [...(listeners.get(type) ?? [])]) handler(event) },
     lastAlert: () => alerts.at(-1),
-    dispatchSuggest: async (input?: string) => { await commands.get("ghost.suggest")!.run(input) },
+    dispatchSuggest: async (input?: string) => {
+      await commands.get("ghost.suggest")!.run(input)
+      if (!dialogRender) return
+      const render = dialogRender
+      dialogRender = undefined
+      dialogView?.renderer.destroy()
+      dialogView = await testRender(() => (
+        <box width="100%" height="100%" alignItems="center" justifyContent="center">
+          <box width="90%" maxWidth={80}>{render()}</box>
+        </box>
+      ), { width, height })
+      await dialogView.renderOnce()
+      const body = dialogView.renderer.root.findDescendantById("ghost-diagnostics-body")
+      if (body instanceof TextRenderable) alerts.push({ title: "Ghost — diagnostics", message: body.plainText })
+    },
+    dialog: { get view() { return dialogView }, get options() { return dialogOptions } },
+    closeDialog: () => context.ui.dialog.clear(),
     clientState,
     messages: context.data.session.message,
     toasts,
@@ -121,8 +146,8 @@ function makeContext() {
   }
 }
 
-function boot() {
-  const harness = makeContext()
+function boot(width = 100, height = 40) {
+  const harness = makeContext(width, height)
   let cleanup: (() => void) | undefined
   let disposeRoot!: () => void
   createRoot((dispose) => {
@@ -130,7 +155,7 @@ function boot() {
     const result = plugin.setup(harness.context)
     cleanup = typeof result === "function" ? result : undefined
   })
-  return { ...harness, unloadPlugin: () => cleanup?.(), unload: () => { cleanup?.(); disposeRoot() } }
+  return { ...harness, unloadPlugin: () => cleanup?.(), unload: () => { harness.closeDialog(); cleanup?.(); disposeRoot() } }
 }
 
 test("a succeeded turn produces a suggestion via the stubbed generation client", async () => {
@@ -314,5 +339,46 @@ test("generation logs separate stage durations and sends the configured soft bud
   } finally {
     harness.unload()
     now.mockRestore()
+  }
+})
+
+test("diagnostics use a centered bounded dialog with focused keyboard scrolling and resize support", async () => {
+  const harness = boot(80, 24)
+  try {
+    for (let i = 0; i < 20; i++) {
+      harness.emit("session.execution.succeeded", { id: `log-${i}`, data: { sessionID: "session-a" } })
+      await tick(10)
+    }
+    await harness.dispatchSuggest("log")
+    expect(harness.dialog.options).toEqual({ size: "large", centered: true })
+    const view = harness.dialog.view!
+    expect(view).toBeDefined()
+    const modal = view.renderer.root.findDescendantById("ghost-diagnostics")!
+    const scroll = view.renderer.root.findDescendantById("ghost-diagnostics-scroll") as ScrollBoxRenderable
+    expect(scroll).toBeInstanceOf(ScrollBoxRenderable)
+    expect(scroll.focused).toBe(true)
+    expect(scroll.scrollHeight).toBeGreaterThan(scroll.height)
+    expect(modal.y).toBeGreaterThan(0)
+    expect(modal.y + modal.height).toBeLessThan(24)
+    expect(Math.abs(modal.y - (24 - modal.height) / 2)).toBeLessThanOrEqual(1)
+    const before = scroll.scrollTop
+    await view.mockInput.pressKeys(["\u001b[6~"])
+    await view.renderOnce()
+    expect(scroll.scrollTop).toBeGreaterThan(before)
+    expect(view.captureCharFrame()).toContain("Ghost — diagnostics")
+    const afterKeyboard = scroll.scrollTop
+    await view.mockMouse.scroll(scroll.x + 1, scroll.y + 1, "down")
+    await view.renderOnce()
+    expect(scroll.scrollTop).toBeGreaterThan(afterKeyboard)
+    view.resize(40, 12)
+    await view.renderOnce()
+    expect(scroll.height).toBeLessThanOrEqual(4)
+    expect(modal.x).toBeGreaterThanOrEqual(0)
+    expect(modal.x + modal.width).toBeLessThanOrEqual(40)
+    expect(modal.y).toBeGreaterThanOrEqual(0)
+    expect(modal.y + modal.height).toBeLessThanOrEqual(12)
+    expect(view.captureCharFrame()).toContain("Ghost — diagnostics")
+  } finally {
+    harness.unload()
   }
 })

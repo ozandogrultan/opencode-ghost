@@ -1,6 +1,7 @@
 /** @jsxImportSource @opentui/solid */
 import { Plugin } from "@opencode/plugin/tui"
 import { TextareaRenderable, InputRenderable, type BoxRenderable, type Renderable } from "@opentui/core"
+import { useTerminalDimensions } from "@opentui/solid"
 import { createEffect, createMemo, createRoot, createSignal, on, onCleanup } from "solid-js"
 import { composerAction, composerBlocker, isEmptyComposer, keyName, locateComposerEditor, observeComposerInput, removesOnly, type ComposerLookup } from "./composer"
 import { createDiagnostics, errorDetail, formatDiagnostic, formatDiagnostics, modelLabel, type DiagnosticEntry, type StageTimings } from "./diagnostics"
@@ -323,10 +324,22 @@ export default Plugin.define({
                 `mode ${context.keymap.mode.current()}`,
                 `color rgba(${[color.r, color.g, color.b, color.a].map((value) => value.toFixed(2)).join(", ")})`,
               ].join("\n")
-              void context.ui.dialog.alert({
-                title: "Ghost — diagnostics",
-                message: `${summary}\n\nNow\n${live}\n\nDisplay changes\n${displayLog.list().length ? formatDiagnostics(displayLog.list()) : "None recorded yet."}\n\nGenerations\n${formatDiagnostics(diagnostics.list())}`,
-              })
+               const message = `${summary}\n\nNow\n${live}\n\nDisplay changes\n${displayLog.list().length ? formatDiagnostics(displayLog.list()) : "None recorded yet."}\n\nGenerations\n${formatDiagnostics(diagnostics.list())}`
+               context.ui.dialog.set({ size: "large", centered: true })
+               context.ui.dialog.show(() => {
+                 const dimensions = useTerminalDimensions()
+                 return (
+                   <box id="ghost-diagnostics" width="100%" paddingX={2} paddingY={1} gap={1}>
+                     <box flexDirection="row" justifyContent="space-between" flexShrink={0}>
+                       <text fg={context.theme.text.base}><b>Ghost — diagnostics</b></text>
+                       <text fg={context.theme.text.muted}>esc</text>
+                     </box>
+                     <scrollbox id="ghost-diagnostics-scroll" height={Math.max(1, Math.min(28, dimensions().height - 8))} flexShrink={0} focused scrollX={false} scrollY>
+                       <text id="ghost-diagnostics-body" fg={context.theme.text.base} wrapMode="word" content={message} />
+                     </scrollbox>
+                   </box>
+                 )
+               })
               return
             }
             if (command.type === "invalid") {
