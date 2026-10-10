@@ -96,16 +96,17 @@ test("accept falls through for wrong focus, modes, session, missing suggestion a
   expect(target.plainText).toBe("")
 })
 
-test("accept refuses drafts and detects insertion failures", () => {
+test("accept refuses drafts before mutating, but reports handled once insertText has been invoked", () => {
   const target = editor()
   target.plainText = "user draft"
   expect(composerAction(target, () => target, "base", true, true, "next")).toBe(false)
   expect(target.plainText).toBe("user draft")
   target.plainText = ""
   target.insertText = () => {}
-  expect(composerAction(target, () => target, "base", true, true, "next")).toBe(false)
+  expect(composerAction(target, () => target, "base", true, true, "next")).toBe(true)
+  target.plainText = ""
   target.insertText = () => { throw new Error() }
-  expect(composerAction(target, () => target, "base", true, true, "next")).toBe(false)
+  expect(composerAction(target, () => target, "base", true, true, "next")).toBe(true)
 })
 
 test("modifier matching does not confuse Shift+Tab, Alt or Super with plain acceptance", () => {

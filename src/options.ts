@@ -57,7 +57,7 @@ const DEFAULTS = {
   recentMessages: 10,
 }
 
-const REMOVED_OPTION_KEYS = ["endpoint", "apiKey", "internalSessionMarkerDir", "argHints", "backOnEmptyLeft"] as const
+const REMOVED_OPTION_KEYS = ["endpoint", "apiKey", "internalSessionMarkerDir", "argHints"] as const
 
 export function removedOptionKeys(raw: Readonly<Record<string, unknown>> | undefined): string[] {
   if (!raw) return []

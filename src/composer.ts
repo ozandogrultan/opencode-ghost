@@ -84,11 +84,8 @@ export function composerAction(editor: Editor | undefined, focused: () => unknow
   if (editor.plainText.length !== 0) return false
   try {
     editor.insertText(text)
-    if (editor.plainText !== text) return false
-    return true
-  } catch {
-    return false
-  }
+  } catch {}
+  return true
 }
 
 export function keyName(event: { name: string; ctrl: boolean; meta: boolean; shift: boolean; option?: boolean; super?: boolean; hyper?: boolean }): string {

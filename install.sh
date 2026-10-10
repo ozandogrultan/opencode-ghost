@@ -85,7 +85,8 @@ for target_cfg in ${unique_targets+"${unique_targets[@]}"}; do
       } catch {
         return false
       }
-      return [entry, path.join(entry, "tui.tsx"), path.join(entry, "src"), path.join(entry, "src", "tui.tsx")].includes(resolved)
+      const repoSrc = path.resolve(source)
+      return [entry, path.join(entry, "tui.tsx"), path.join(entry, "src"), path.join(entry, "src", "tui.tsx"), repoSrc, path.join(repoSrc, "tui.tsx")].includes(resolved)
     }
     const readConfig = (file, key, legacy = false) => {
       if (!fs.existsSync(file)) return {}
@@ -106,7 +107,7 @@ for target_cfg in ${unique_targets+"${unique_targets[@]}"}; do
     }
     const cleanOptions = (options) => {
       if (!options || typeof options !== "object" || Array.isArray(options)) return undefined
-      const { apiKey, endpoint, internalSessionMarkerDir, argHints, backOnEmptyLeft, ...kept } = options
+      const { apiKey, endpoint, internalSessionMarkerDir, argHints, ...kept } = options
       return kept
     }
     const cli = readConfig(cliFile, "plugins")

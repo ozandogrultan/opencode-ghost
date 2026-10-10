@@ -146,11 +146,23 @@ describe("install.sh cli.json registration", () => {
 
   test("recognizes package and old relative, absolute, source and file URL registrations", () => {
     for (const spec of ["opencode-ghost", "opencode-ghost@0.5.0", "./plugins/opencode-ghost/tui.tsx", "./plugins/opencode-ghost/src/tui.tsx", "absolute", "url"]) {
-      const run = sandbox({ tui: (dir) => ({ theme: "custom", plugin: [[spec === "absolute" ? `${dir}/plugins/opencode-ghost/tui.tsx` : spec === "url" ? `file://${dir}/plugins/opencode-ghost/tui.tsx` : spec, { model: "openai/gpt-6-luna-fast", endpoint: "removed", apiKey: "fixture-only", internalSessionMarkerDir: "removed", argHints: {}, backOnEmptyLeft: false, extra: true }], "other"] }) })
+      const run = sandbox({ tui: (dir) => ({ theme: "custom", plugin: [[spec === "absolute" ? `${dir}/plugins/opencode-ghost/tui.tsx` : spec === "url" ? `file://${dir}/plugins/opencode-ghost/tui.tsx` : spec, { model: "openai/gpt-6-luna-fast", endpoint: "removed", apiKey: "fixture-only", internalSessionMarkerDir: "removed", argHints: {}, extra: true }], "other"] }) })
       expect(run.result.exitCode).toBe(0)
       expect(run.readCli().plugins[0].options).toEqual({ model: "openai/gpt-6-luna-fast", extra: true })
       expect(run.readTui()).toEqual({ theme: "custom", plugin: ["other"] })
     }
+  })
+
+  test("recognizes a registration pointing at the repo's own src directory and migrates it", () => {
+    const repoSrc = join(repoDir, "src")
+    const cliRun = sandbox({ cli: () => ({ plugins: [{ package: repoSrc, options: { maxChars: 42, endpoint: "removed" } }, "other"] }) })
+    expect(cliRun.result.exitCode).toBe(0)
+    expect(cliRun.readCli().plugins).toEqual([{ package: join(cliRun.configDir, "plugins/opencode-ghost"), options: { maxChars: 42 } }, "other"])
+
+    const tuiRun = sandbox({ tui: () => ({ plugin: [[join(repoSrc, "tui.tsx"), { model: "openai/gpt-6-luna-fast" }], "other"] }) })
+    expect(tuiRun.result.exitCode).toBe(0)
+    expect(tuiRun.readCli().plugins).toEqual([{ package: join(tuiRun.configDir, "plugins/opencode-ghost"), options: { model: "openai/gpt-6-luna-fast" } }])
+    expect(tuiRun.readTui().plugin).toEqual(["other"])
   })
 
   test("normalizes owned CLI registrations to the installed directory and strips removed options", () => {

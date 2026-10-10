@@ -92,9 +92,8 @@ describe("removedOptionKeys", () => {
         apiKey: "sk-x",
         internalSessionMarkerDir: "/tmp/x",
         argHints: { foo: ["a"] },
-        backOnEmptyLeft: false,
       }),
-    ).toEqual(["endpoint", "apiKey", "internalSessionMarkerDir", "argHints", "backOnEmptyLeft"])
+    ).toEqual(["endpoint", "apiKey", "internalSessionMarkerDir", "argHints"])
   })
 
   test("normalises accept key aliases and drops unknown modifiers", () => {
