@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.7] - 2026-10-10
+
+### Fixed
+
+- **tui:** Center diagnostics and constrain scrollable dialog height
+
 ## [1.3.6] - 2026-10-10
 
 ### Fixed
@@ -283,6 +289,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Options for `model`, `acceptKeys`, `maxChars`, `idleDelayMs`,
   `recentMessages` and `system`.
 
+[1.3.7]: https://github.com/ozandogrultan/opencode-ghost/compare/v1.3.6...v1.3.7
 [1.3.6]: https://github.com/ozandogrultan/opencode-ghost/compare/v1.3.5...v1.3.6
 [1.3.5]: https://github.com/ozandogrultan/opencode-ghost/compare/v1.3.4...v1.3.5
 [1.3.4]: https://github.com/ozandogrultan/opencode-ghost/compare/v1.3.3...v1.3.4
