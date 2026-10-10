@@ -52,6 +52,15 @@ describe("errorDetail", () => {
 })
 
 describe("formatDiagnostic", () => {
+  test("shows reached stage timings, including zero, without inventing missing stages", () => {
+    const complete = formatDiagnostic({ at: 0, sessionID: "s", outcome: "ok", stages: { syncMs: 0, modelMs: 12, generationMs: 34 } })
+    expect(complete).toContain("sync 0ms, model 12ms, generation 34ms")
+    const aborted = formatDiagnostic({ at: 0, sessionID: "s", outcome: "aborted", stages: { syncMs: 7 } })
+    expect(aborted).toContain("sync 7ms")
+    expect(aborted).not.toContain("model ")
+    expect(aborted).not.toContain("generation ")
+  })
+
   test("renders a readable line with optional detail", () => {
     expect(formatDiagnostic({ at: 0, sessionID: "s", outcome: "ok", model: "a/b", durationMs: 12, chars: 5 }))
       .toContain("ok a/b 12ms 5 chars")

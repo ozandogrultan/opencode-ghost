@@ -3,7 +3,7 @@ import { Plugin } from "@opencode/plugin/tui"
 import { TextareaRenderable, InputRenderable, type BoxRenderable, type Renderable } from "@opentui/core"
 import { createEffect, createMemo, createRoot, createSignal, on, onCleanup } from "solid-js"
 import { composerAction, composerBlocker, isEmptyComposer, keyName, locateComposerEditor, observeComposerInput, removesOnly, type ComposerLookup } from "./composer"
-import { createDiagnostics, errorDetail, formatDiagnostic, formatDiagnostics, modelLabel, type DiagnosticEntry } from "./diagnostics"
+import { createDiagnostics, errorDetail, formatDiagnostic, formatDiagnostics, modelLabel, type DiagnosticEntry, type StageTimings } from "./diagnostics"
 import { createLifecycle } from "./lifecycle"
 import { acceptCommand, acceptShortcuts, ghostBaseLayer, ghostSuggestLayer } from "./keymap"
 import { parseSuggestCommand, removedOptionKeys, resolveOptions, suggestionModel } from "./options"
@@ -80,11 +80,22 @@ export default Plugin.define({
       if (!canGenerate(sessionID)) return
       const started = Date.now()
       const elapsed = () => Date.now() - started
+      const stages: StageTimings = {}
+      const measure = async <T,>(stage: keyof StageTimings, run: () => Promise<T>): Promise<T> => {
+        const start = Date.now()
+        try {
+          return await run()
+        } finally {
+          stages[stage] = Date.now() - start
+        }
+      }
+      const noteGeneration = (entry: Omit<DiagnosticEntry, "at" | "sessionID" | "durationMs" | "stages">) =>
+        note({ ...entry, sessionID, durationMs: elapsed(), stages: { ...stages } })
       let model: SuggestionModel | undefined
       let failure: unknown
       let syncing = true
       try {
-        await context.data.session.message.sync(sessionID)
+        await measure("syncMs", () => context.data.session.message.sync(sessionID))
         syncing = false
         if (signal.aborted || !canGenerate(sessionID)) return
         const messages = context.data.session.message.list(sessionID) as readonly TranscriptMessage[]
@@ -93,43 +104,43 @@ export default Plugin.define({
         const session = context.data.session.get(sessionID)
         const location = session?.location ?? context.location ?? context.data.location.default()
         const explicit = suggestionModel(state.model, opts.model)
-        model = explicit
-          ? await resolveExplicitModel(context.client, location, signal, explicit, catalog)
-          : await resolveSmallModel(context.client, location, signal, session, catalog)
+        model = await measure("modelMs", () => explicit
+          ? resolveExplicitModel(context.client, location, signal, explicit, catalog)
+          : resolveSmallModel(context.client, location, signal, session, catalog))
         if (signal.aborted || !canGenerate(sessionID)) return
         if (!model) return
-        const raw = await generateSuggestion(
+        const raw = await measure("generationMs", () => generateSuggestion(
           context.client,
-          suggestionPrompt(opts.system, transcript),
+          suggestionPrompt(opts.system, transcript, opts.maxChars),
           model,
           signal,
           (error) => { failure = error; warnGeneration(error) },
           () => canGenerate(sessionID),
-        )
+        ))
         const label = modelLabel(model)
         if (signal.aborted) return
         if (failure) {
-          note({ sessionID, outcome: "error", model: label, durationMs: elapsed(), detail: errorDetail(failure) })
+          noteGeneration({ outcome: "error", model: label, detail: errorDetail(failure) })
           return
         }
         if (!raw) {
           if (!canGenerate(sessionID)) return
-          note({ sessionID, outcome: "empty", model: label, durationMs: elapsed() })
+          noteGeneration({ outcome: "empty", model: label })
           return
         }
         const clean = normalize(raw, opts.maxChars)
         if (!clean) {
-          note({ sessionID, outcome: "empty", model: label, durationMs: elapsed(), chars: raw.length })
+          noteGeneration({ outcome: "empty", model: label, chars: raw.length })
           return
         }
         const previous = lastUserText(messages)
         if (previous && isEcho(clean, previous)) {
-          note({ sessionID, outcome: "echo", model: label, durationMs: elapsed(), chars: clean.length })
+          noteGeneration({ outcome: "echo", model: label, chars: clean.length })
           return
         }
         if (!canGenerate(sessionID)) return
         setSuggestion({ sessionID, text: clean })
-        note({ sessionID, outcome: "ok", model: label, durationMs: elapsed(), chars: clean.length })
+        noteGeneration({ outcome: "ok", model: label, chars: clean.length })
       } catch (error) {
         if (signal.aborted) return
         if (syncing) {
@@ -138,15 +149,13 @@ export default Plugin.define({
             context.ui.toast.show({ title: "Ghost", message: "Suggestions unavailable: session messages could not sync.", variant: "warning" })
           }
         } else warnGeneration(error)
-        note({
-          sessionID,
+        noteGeneration({
           outcome: isNoSmallModel(error) ? "unavailable" : "error",
           ...(model ? { model: modelLabel(model) } : {}),
-          durationMs: elapsed(),
           detail: errorDetail(error),
         })
       } finally {
-        if (signal.aborted) note({ sessionID, outcome: "aborted", ...(model ? { model: modelLabel(model) } : {}), durationMs: elapsed() })
+        if (signal.aborted) noteGeneration({ outcome: "aborted", ...(model ? { model: modelLabel(model) } : {}) })
       }
     }
 

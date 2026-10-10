@@ -14,7 +14,14 @@ describe("buildTranscript", () => {
   })
 
   test("includes the configured system in the generation prompt", () => {
-    expect(suggestionPrompt("Custom instructions", buildTranscript([{ type: "user", text: "hi" }], 1))).toBe("Custom instructions\n\nUser: hi\n\nTask: write the user's next message.")
+    const prompt = suggestionPrompt("Custom instructions", buildTranscript([{ type: "user", text: "hi" }], 1), 120)
+    expect(prompt).toStartWith("Custom instructions\n\nUser: hi\n\nTask: write the user's next message.")
+    expect(prompt).toContain("at most 120 characters")
+    expect(prompt).toContain("NONE")
+  })
+
+  test("the soft output budget follows the configured character limit", () => {
+    expect(suggestionPrompt("Custom instructions", "User: hi", 60)).toContain("at most 60 characters")
   })
   test("joins user and assistant text in order", () => {
     const messages: TranscriptMessage[] = [

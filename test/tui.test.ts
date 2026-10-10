@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test"
+import { expect, spyOn, test } from "bun:test"
 import { InternalKeyHandler } from "@opentui/core"
 import { createRoot, createSignal } from "solid-js"
 import { createStore, produce } from "solid-js/store"
@@ -161,6 +161,9 @@ test("aborting during sync, model resolution or generation logs cancellation and
       await harness.dispatchSuggest("log")
       expect(harness.lastAlert()?.message).toContain("suggestion none")
       expect(harness.lastAlert()?.message).toContain("aborted")
+      expect(harness.lastAlert()?.message).toMatch(/sync \d+ms/)
+      if (stage.startsWith("resolution") || stage === "generation") expect(harness.lastAlert()?.message).toMatch(/model \d+ms/)
+      if (stage === "generation") expect(harness.lastAlert()?.message).toMatch(/generation \d+ms/)
       expect(harness.toasts).toHaveLength(0)
     } finally {
       harness.unload()
@@ -279,13 +282,37 @@ test("sync failures warn separately without consuming the model warning", async 
     expect(harness.toasts[0]?.message).not.toContain("/suggest model")
     await harness.dispatchSuggest("log")
     expect(harness.lastAlert()?.message).toContain("offline")
+    expect(harness.lastAlert()?.message).toMatch(/sync \d+ms/)
     harness.messages.sync = async () => {}
     harness.clientState.generateText = async () => { throw new Error("unsupported model") }
     harness.emit("session.execution.succeeded", { id: "model-1", data: { sessionID: "session-a" } })
     await tick(30)
     expect(harness.toasts).toHaveLength(2)
     expect(harness.toasts[1]?.message).toContain("/suggest model")
+    await harness.dispatchSuggest("log")
+    expect(harness.lastAlert()?.message).toMatch(/generation \d+ms/)
   } finally {
     harness.unload()
+  }
+})
+
+test("generation logs separate stage durations and sends the configured soft budget", async () => {
+  let clock = 1000
+  const now = spyOn(Date, "now").mockImplementation(() => clock)
+  const harness = boot()
+  let prompt = ""
+  try {
+    harness.messages.sync = async () => { clock += 11 }
+    harness.clientState.modelList = async () => { clock += 22; return { data: [stubModel] } }
+    harness.context.client.generate.text = async (input) => { prompt = input.prompt; clock += 33; return { text: "run the new test suite" } }
+    harness.emit("session.execution.succeeded", { id: "timed", data: { sessionID: "session-a" } })
+    await tick(30)
+    await harness.dispatchSuggest("log")
+    expect(harness.lastAlert()?.message).toContain("ok stub/suggest 66ms")
+    expect(harness.lastAlert()?.message).toContain("sync 11ms, model 22ms, generation 33ms")
+    expect(prompt).toContain("at most 120 characters")
+  } finally {
+    harness.unload()
+    now.mockRestore()
   }
 })

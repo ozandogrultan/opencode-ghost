@@ -1,11 +1,14 @@
 export type DiagnosticOutcome = "ok" | "empty" | "echo" | "unavailable" | "error" | "aborted" | "shown" | "hidden"
 
+export type StageTimings = { syncMs?: number; modelMs?: number; generationMs?: number }
+
 export type DiagnosticEntry = {
   readonly at: number
   readonly sessionID: string
   readonly outcome: DiagnosticOutcome
   readonly model?: string
   readonly durationMs?: number
+  readonly stages?: Readonly<StageTimings>
   readonly chars?: number
   readonly detail?: string
 }
@@ -68,7 +71,9 @@ export function formatDiagnostic(entry: DiagnosticEntry): string {
   const parts = [clockTime(entry.at), OUTCOME_LABELS[entry.outcome], entry.model ?? "—"]
   if (entry.durationMs !== undefined) parts.push(`${entry.durationMs}ms`)
   if (entry.chars !== undefined) parts.push(`${entry.chars} chars`)
-  const line = parts.join(" ")
+  const stages = [["sync", entry.stages?.syncMs], ["model", entry.stages?.modelMs], ["generation", entry.stages?.generationMs]] as const
+  const timing = stages.filter(([, ms]) => ms !== undefined).map(([name, ms]) => `${name} ${ms}ms`).join(", ")
+  const line = parts.join(" ") + (timing ? `\n  ${timing}` : "")
   return entry.detail ? `${line}\n  ${entry.detail}` : line
 }
 

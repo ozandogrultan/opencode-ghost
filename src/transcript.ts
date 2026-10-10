@@ -39,6 +39,6 @@ export function lastUserText(messages: readonly TranscriptMessage[]): string {
   return ""
 }
 
-export function suggestionPrompt(system: string, transcript: string): string {
-  return `${system}\n\n${transcript}`
+export function suggestionPrompt(system: string, transcript: string, maxChars: number): string {
+  return `${system}\n\n${transcript}\n\nReturn one line of at most ${maxChars} characters. If no suggestion is appropriate, return NONE. Do not include explanations.`
 }

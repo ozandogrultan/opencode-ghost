@@ -88,10 +88,15 @@ copy, use `/absolute/path/to/config/plugins/opencode-ghost`.
 | `enabled`        | `boolean`  | `true`              | Initial state; `/suggest` toggles it at runtime (persisted).  |
 | `model`          | `string`   | OpenCode small default | Explicit `provider/model` override. Otherwise uses the effective title-agent model or OpenCode's small-model selection policy. |
 | `acceptKeys`     | `string[]` | `["tab", "right"]`  | Key names as reported by the terminal (`tab`, `right`, ...). Modifier aliases (`meta`, `option`, `cmd`, `control`) are normalised; keys with unknown modifiers are ignored. |
-| `maxChars`       | `number`   | `120`               | Maximum suggestion length.                                     |
+| `maxChars`       | `number`   | `120`               | Requested response character budget and maximum displayed suggestion length. |
 | `idleDelayMs`    | `number`   | `500`               | Debounce after a turn finishes before generating.               |
 | `recentMessages` | `number`   | `10`                | How many recent messages feed the suggestion prompt.            |
 | `system`         | `string`   | built-in            | Override the system prompt sent to the suggestion model.        |
+
+`maxChars` is included as a soft character budget in every generation prompt,
+including custom `system` prompts. OpenCode's experimental `generate.text` API
+has no output-token limit; the model can exceed the requested budget. Ghost
+still enforces `maxChars` when normalizing the displayed suggestion.
 
 ## Commands
 
@@ -104,7 +109,7 @@ copy, use `/absolute/path/to/config/plugins/opencode-ghost`.
   the error.
 - `/suggest debug on` / `/suggest debug off` — set debug mode explicitly.
 - `/suggest log` — show the last 20 generation attempts (outcome, model,
-  latency, length and error detail) in a dialog, regardless of debug mode.
+  total and stage latency, length and error detail) in a dialog, regardless of debug mode.
 
 Model precedence is the persisted `/suggest model` override, then the `model`
 option, then the effective title agent's model from OpenCode's public agent API.
@@ -153,7 +158,9 @@ When enabling, a suggestion is generated immediately for the current session.
 
 Ghost records every generation attempt to a bounded in-memory history (the last
 20): outcome (`ok`, `empty`, `echo`, `no model`, `error`, `aborted`), the resolved
-model with its variant, latency, suggestion length and error detail. `/suggest log`
+model with its variant, total latency, message-sync/model-resolution/generation
+stage timings, suggestion length and error detail. Latency excludes the debounce;
+only reached stages are recorded, including failures and cancellations. `/suggest log`
 shows it in a dialog at any time; `aborted` covers attempts cancelled by typing,
 a newer turn, leaving the session, disabling or unload, so a missing suggestion can
 be traced to a debounce, an empty or `NONE` reply, an echo filter, or a provider
