@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.8] - 2026-10-11
+
+### Fixed
+
+- **tui:** Retry model-unavailable replies while the server catalog loads
+
 ## [1.3.7] - 2026-10-10
 
 ### Fixed
@@ -289,6 +295,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Options for `model`, `acceptKeys`, `maxChars`, `idleDelayMs`,
   `recentMessages` and `system`.
 
+[1.3.8]: https://github.com/ozandogrultan/opencode-ghost/compare/v1.3.7...v1.3.8
 [1.3.7]: https://github.com/ozandogrultan/opencode-ghost/compare/v1.3.6...v1.3.7
 [1.3.6]: https://github.com/ozandogrultan/opencode-ghost/compare/v1.3.5...v1.3.6
 [1.3.5]: https://github.com/ozandogrultan/opencode-ghost/compare/v1.3.4...v1.3.5
