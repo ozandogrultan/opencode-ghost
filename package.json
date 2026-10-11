@@ -47,18 +47,18 @@
     "lint:sh": "for script in install.sh tests/*.sh scripts/*.sh; do bash -n \"$script\" || exit; done",
     "prepublishOnly": "bun run test && bun run typecheck"
   },
+  "dependencies": {
+    "@opentui/core": "^0.5.17",
+    "@opentui/solid": "^0.5.17"
+  },
   "peerDependencies": {
     "@opencode/plugin": "*",
-    "@opentui/core": ">=0.5.16 <0.6.0",
-    "@opentui/solid": ">=0.5.16 <0.6.0",
     "solid-js": "*"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.2",
     "@opencode/plugin": "2.0.25",
-    "@opentui/core": "^0.5.16",
-    "@opentui/solid": "^0.5.16",
     "@types/bun": "^1.4.2",
     "@types/node": "24.12.2",
     "husky": "^9.1.7",
