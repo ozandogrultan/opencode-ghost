@@ -241,7 +241,9 @@ section also reports focus, keymap mode and the placeholder colour. With
   cache. Default-model resolution also reads effective agents. The stateless
   endpoint has no location argument; project-only models
   may fail server-global resolution. Invalid overrides and provider failures warn
-  without retrying through another provider or a session.
+  without retrying through another provider or a session. A "Model unavailable"
+  reply is retried on the same model with backoff (1s to 8s), since the server
+  catalog can still be loading right after startup.
 
 ## Development
 

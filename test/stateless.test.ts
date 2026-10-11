@@ -57,6 +57,47 @@ describe("generateSuggestion", () => {
     expect((capturedOptions as { signal?: AbortSignal })?.signal).toBe(controller.signal)
   })
 
+  test("retries a transient model-unavailable error without reporting it", async () => {
+    let calls = 0
+    const errors: unknown[] = []
+    const client = fakeClient(async () => {
+      if (++calls < 3) throw Object.assign(new Error("Model unavailable: a/b"), { _tag: "InvalidRequestError" })
+      return { text: "next" }
+    })
+    const result = await generateSuggestion(client, "p", { providerID: "a", modelID: "b" }, new AbortController().signal, (error) => errors.push(error), () => true, [1, 1, 1])
+    expect(result).toBe("next")
+    expect(calls).toBe(3)
+    expect(errors).toHaveLength(0)
+  })
+
+  test("reports model-unavailable once retries are exhausted and never retries other errors", async () => {
+    let calls = 0
+    const errors: unknown[] = []
+    const unavailable = fakeClient(async () => { calls++; throw new Error("Model unavailable: a/b") })
+    await generateSuggestion(unavailable, "p", { providerID: "a", modelID: "b" }, new AbortController().signal, (error) => errors.push(error), () => true, [1, 1])
+    expect(calls).toBe(3)
+    expect(errors).toHaveLength(1)
+    calls = 0
+    const other = fakeClient(async () => { calls++; throw new Error("boom") })
+    await generateSuggestion(other, "p", { providerID: "a", modelID: "b" }, new AbortController().signal, undefined, () => true, [1, 1])
+    expect(calls).toBe(1)
+  })
+
+  test("abort or route change during the retry wait stops further attempts", async () => {
+    for (const reason of ["abort", "route"]) {
+      const controller = new AbortController()
+      let current = true
+      let calls = 0
+      const client = fakeClient(async () => { calls++; throw new Error("Model unavailable: a/b") })
+      const pending = generateSuggestion(client, "p", { providerID: "a", modelID: "b" }, controller.signal, undefined, () => current, [20, 20])
+      await Bun.sleep(5)
+      if (reason === "abort") controller.abort()
+      else current = false
+      expect(await pending).toBeUndefined()
+      expect(calls).toBe(1)
+    }
+  })
+
   test("never calls native generation when no model is resolved", async () => {
     let captured: unknown
     const client = fakeClient(async (input) => {
