@@ -34,7 +34,23 @@ a dimmed inline placeholder in the empty composer with
 
 ## Install
 
-### From this repo (recommended)
+### From npm (recommended)
+
+Add the package to your `cli.json` (normally `~/.config/opencode/cli.json`):
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/v2/cli.json",
+  "plugins": ["opencode-ghost"]
+}
+```
+
+Then **restart opencode**; it installs the package on startup. Pin a version
+with `"opencode-ghost@1.3.7"`, or change the version and restart to update.
+Pass options with the object form shown under [Manually](#manually), using
+`"package": "opencode-ghost"`.
+
+### From this repo
 
 ```sh
 git clone https://github.com/ozandogrultan/opencode-ghost.git
