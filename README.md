@@ -1,6 +1,6 @@
 # opencode-ghost
 
-[![CI](https://github.com/ozandogrultan/opencode-ghost/actions/workflows/ci.yml/badge.svg)](https://github.com/ozandogrultan/opencode-ghost/actions/workflows/ci.yml)
+[![CI](https://github.com/ozandogrultan/opencode-ghost/actions/workflows/ci.yml/badge.svg)](https://github.com/ozandogrultan/opencode-ghost/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/opencode-ghost)](https://www.npmjs.com/package/opencode-ghost)
 
 An **OpenCode V2 TUI plugin** providing next-prompt suggestions, in the
 style of Claude Code: after each turn a small model reads the recent
