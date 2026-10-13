@@ -24,11 +24,12 @@ a dimmed inline placeholder in the empty composer with
 - **Hides as you type.** Typing and pasting abort pending generation and hide the
   preview. Emptying the composer restores the same suggestion without another
   API call; focus changes also reuse it. Navigation keys leave it intact.
-- **`/suggest` toggles it.** State is stored durably via the plugin's storage.
+- **`/suggest` controls it.** Toggle suggestions, set a runtime model override,
+  or inspect live state and diagnostics; settings persist via the plugin's storage.
 
 ## Requirements
 
-- [opencode](https://opencode.ai) v2 (TUI plugins; tested against 2.0.25).
+- [opencode](https://opencode.ai) v2 (TUI plugins).
 - A provider/model and authentication method that support OpenCode's stateless
   `generate.text` endpoint. Set `model` explicitly if no default small model is available.
 
@@ -46,7 +47,7 @@ Add the package to your `cli.json` (normally `~/.config/opencode/cli.json`):
 ```
 
 Then **restart opencode**; it installs the package on startup. Pin a version
-with `"opencode-ghost@1.3.7"`, or change the version and restart to update.
+with `"opencode-ghost@<version>"`, or change the version and restart to update.
 Pass options with the object form shown under [Manually](#manually), using
 `"package": "opencode-ghost"`.
 
@@ -132,12 +133,12 @@ still enforces `maxChars` when normalizing the displayed suggestion.
 - `/suggest model openai/gpt-6-luna-fast` — set a persisted runtime model override.
 - `/suggest model clear` — clear the override and use the configured `model`,
   or the OpenCode small default, never the main model.
-- `/suggest debug` — toggle debug mode (persisted). While on, each generation
-  attempt shows a toast with its outcome, resolved model, latency and length, or
-  the error.
+- `/suggest debug` — toggle debug mode (persisted). While on, each non-aborted
+  generation outcome and each display change shows a toast.
 - `/suggest debug on` / `/suggest debug off` — set debug mode explicitly.
-- `/suggest log` — show the last 20 generation attempts (outcome, model,
-  total and stage latency, length and error detail) in a dialog, regardless of debug mode.
+- `/suggest log` — show live state, the last 20 display changes, and the last 20
+  generation attempts (outcome, model, total and stage latency, length and error
+  detail) in a dialog, regardless of debug mode.
 
 Model precedence is the persisted `/suggest model` override, then the `model`
 option, then the effective title agent's model from OpenCode's public agent API.
@@ -145,7 +146,7 @@ OpenCode resolves inherited `agents.title.model`, migrated legacy `small_model`,
 and directory definitions such as `agents/title.md` and `agent/title.md`, including
 agent deletion/recreation. Explicitly configured variants are preserved.
 Without a configured title model, or when the title agent is disabled, Ghost
-mirrors OpenCode 2.0.25's internal small-model policy until a public API exists:
+mirrors OpenCode's internal small-model policy until a public API exists:
 within the session model's provider (or the session agent model's provider,
 then the location's default provider, then the first enabled text model's
 provider when no default exists), choose

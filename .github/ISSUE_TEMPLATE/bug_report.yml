@@ -41,7 +41,7 @@ body:
         - Suggestion never appears
         - Accept key (Tab / →) does nothing
         - Suggestion is wrong or malformed
-        - "`/suggest` toggle"
+        - "`/suggest` command"
         - "Installer (install.sh)"
         - Other
     validations:

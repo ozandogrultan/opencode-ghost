@@ -4,20 +4,22 @@
 
 An [opencode](https://opencode.ai) **V2 TUI plugin** that suggests your next
 prompt after each turn, rendered as a dimmed inline placeholder in the empty
-composer with `Tab`/`→` to accept, plus the `/suggest`
-toggle. `README.md` is the user-facing contract — read it before changing
+composer with `Tab`/`→` to accept, plus `/suggest` commands (`model`, `debug`,
+`log`). `README.md` is the user-facing contract — read it before changing
 behaviour.
 
 ## Layout
 
-- `src/tui.tsx` — the plugin: `Plugin.define({ id, setup })`, the
-  `session.execution.succeeded` hook, generation, the footer marker, and
-  the accept keymap.
+- `src/tui.tsx` — the plugin: `Plugin.define({ id, setup })`, execution hooks,
+  generation, display-state tracking, the pre-render frame callback, the footer
+  marker, the accept keymap, and `/suggest` commands/dialog.
 - `src/options.ts`, `src/text.ts`, `src/transcript.ts`, `src/stateless.ts`,
   `src/composer.ts`, `src/lifecycle.ts`, `src/placeholder.ts`, `src/keymap.ts`,
   `src/diagnostics.ts` —
-  helpers (option parsing/validation, text normalization and model resolution
-  in `src/text.ts`, transcript building, the `generate.text` call, keymap layers).
+  helpers (option parsing/validation, text normalization and model resolution,
+  transcript building, the `generate.text` call, composer discovery/eligibility
+  and pre-keymap input observation, debounce/cancellation/deduplication,
+  placeholder ownership, keymap layers, and bounded diagnostics).
 - `test/` — bun tests (`bun test`); `bunfig.toml` preloads OpenTUI's reactive Solid build.
 - `tests/changelog.sh`, `scripts/changelog.sh` — release bookkeeping.
 - `install.sh` — copies the plugin into opencode's config and registers it in
