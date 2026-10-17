@@ -1,10 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="ghost">
 <title>ghost</title>
-<desc>A ghost with a terminal prompt for a face, paired with a mint cursor.</desc>
+<desc>A ghost with a terminal prompt for a face.</desc>
 <style>
 .tile{fill:#15171e}.edge{fill:none;stroke:#2c303b;stroke-width:2}
 .body{fill:#e8eaf0}.prompt{fill:none;stroke:#15171e;stroke-width:6;stroke-linecap:round;stroke-linejoin:round}
-.cursor{fill:#5ee0c0}
 .word{fill:#1b1f27}
 @media (prefers-color-scheme: dark){.word{fill:#eef0f5}.edge{stroke:#3a3f4c}}
 </style>
@@ -14,6 +13,5 @@
 <path d="M32 96V56A32 32 0 0 1 96 56V96L85.333 88L74.667 96L64 88L53.333 96L42.667 88Z" class="body"/>
 <path d="M45 49L55 58L45 67" class="prompt"/>
 <path d="M68 67H81" class="prompt"/>
-<rect x="101" y="88" width="7" height="16" rx="1" class="cursor"/>
 </g>
 </svg>
