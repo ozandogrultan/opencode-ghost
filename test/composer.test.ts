@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test"
-import { InternalKeyHandler, KeyEvent } from "@opentui/core"
+import { InternalKeyHandler, KeyEvent, type KeyHandler } from "@opentui/core"
 import { canonicalKey, isValidKey, removesOnly, composerAction, composerBlocker, findComposerEditor, keyName, locateComposerEditor, observeComposerInput, type Editor, type EditorNode } from "../src/composer"
 import { createLifecycle } from "../src/lifecycle"
 
@@ -18,7 +18,7 @@ test("input cancellation runs before consuming keymap listeners, aborts active g
     const active = lifecycle.run("session")
     visible = true
     input.prependListener("keypress", (event) => { order.push("keymap"); event.preventDefault(); event.stopPropagation() })
-    const off = observeComposerInput(input, () => false, () => { order.push("cancel"); lifecycle.cancel() })
+    const off = observeComposerInput(input as unknown as KeyHandler, () => false, () => { order.push("cancel"); lifecycle.cancel() })
     input.emit("keypress", new KeyEvent({ name, ctrl: name === "v", meta: false, shift: false, option: false, sequence: name, raw: name, number: false, eventType: "press", source: "raw" }))
     expect(order).toEqual(["cancel", "keymap"])
     expect(signal?.aborted).toBe(true)
@@ -39,7 +39,7 @@ test("eligible configured accept keys survive pre-dispatch observation; editing 
   let eligible = true
   input.prependListener("keypress", (event) => { order.push(keyName(event)); event.stopPropagation() })
   input.prependListener("paste", (event) => { order.push("paste"); event.stopPropagation() })
-  const off = observeComposerInput(input, (event) => eligible && ["tab", "shift+tab", "right", "y"].includes(keyName(event)), () => { order.push("cancel") })
+  const off = observeComposerInput(input as unknown as KeyHandler, (event) => eligible && ["tab", "shift+tab", "right", "y"].includes(keyName(event)), () => { order.push("cancel") })
   const press = (name: string, shift = false, sequence = name) => input.emit("keypress", new KeyEvent({ name, shift, ctrl: false, meta: false, option: false, sequence, raw: sequence, number: false, eventType: "press", source: "raw" }))
   press("tab")
   press("tab", true)
@@ -57,7 +57,7 @@ test("eligible configured accept keys survive pre-dispatch observation; editing 
 test("undo and redo cancel pending generation before the host handles them", () => {
   const input = new InternalKeyHandler()
   let cancelled = 0
-  const off = observeComposerInput(input, () => false, () => { cancelled++ })
+  const off = observeComposerInput(input as unknown as KeyHandler, () => false, () => { cancelled++ })
   for (const [name, ctrl, superKey, shift] of [["-", true, false, false], [".", true, false, false], ["z", false, true, false], ["z", false, true, true]] as const) {
     input.emit("keypress", new KeyEvent({ name, ctrl, super: superKey, shift, meta: false, option: false, sequence: name, raw: name, number: false, eventType: "press", source: "raw" }))
     expect(removesOnly({ name, ctrl, super: superKey, meta: false })).toBe(false)
@@ -69,7 +69,7 @@ test("undo and redo cancel pending generation before the host handles them", () 
 test("navigation and non-text keys leave the suggestion and generation untouched", () => {
   const input = new InternalKeyHandler()
   let cancelled = 0
-  const off = observeComposerInput(input, () => false, () => { cancelled++ })
+  const off = observeComposerInput(input as unknown as KeyHandler, () => false, () => { cancelled++ })
   const press = (name: string, sequence: string, mods: { ctrl?: boolean; meta?: boolean } = {}) =>
     input.emit("keypress", new KeyEvent({ name, ctrl: !!mods.ctrl, meta: !!mods.meta, shift: false, option: false, sequence, raw: sequence, number: false, eventType: "press", source: "raw" }))
   for (const [name, sequence] of [["pageup", "\u001b[5~"], ["pagedown", "\u001b[6~"], ["left", "\u001b[D"], ["up", "\u001b[A"], ["home", "\u001b[H"], ["escape", "\u001b"], ["tab", "\t"], ["f1", "\u001bOP"], ["pageup", ""]] as const) press(name, sequence)
