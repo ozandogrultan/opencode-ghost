@@ -20,6 +20,8 @@ behaviour.
   transcript building, the `generate.text` call, composer discovery/eligibility
   and pre-keymap input observation, debounce/cancellation/deduplication,
   placeholder ownership, keymap layers, and bounded diagnostics).
+- `assets/` — README logo (`logo.svg`) and square mark (`icon.svg`); wordmark is
+  outlined DejaVu Sans Mono Bold paths, no font dependency.
 - `test/` — bun tests (`bun test`); `bunfig.toml` preloads OpenTUI's reactive Solid build.
 - `tests/changelog.sh`, `scripts/changelog.sh` — release bookkeeping.
 - `install.sh` — copies the plugin into opencode's config and registers it in

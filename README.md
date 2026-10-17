@@ -1,6 +1,14 @@
-# opencode-ghost
+<h1 align="center">
+  <img src="assets/logo.svg" alt="ghost — next-prompt suggestions for OpenCode" height="96">
+</h1>
 
-[![CI](https://github.com/ozandogrultan/opencode-ghost/actions/workflows/ci.yml/badge.svg)](https://github.com/ozandogrultan/opencode-ghost/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/opencode-ghost)](https://www.npmjs.com/package/opencode-ghost)
+<p align="center">
+  <a href="https://github.com/ozandogrultan/opencode-ghost/actions/workflows/ci.yml"><img src="https://github.com/ozandogrultan/opencode-ghost/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://www.npmjs.com/package/opencode-ghost"><img src="https://img.shields.io/npm/v/opencode-ghost" alt="npm"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+  <a href="#contributing"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs welcome"></a>
+  <a href="https://github.com/ozandogrultan/opencode-ghost/stargazers"><img src="https://img.shields.io/github/stars/ozandogrultan/opencode-ghost.svg?style=social" alt="GitHub stars"></a>
+</p>
 
 An **OpenCode V2 TUI plugin** providing next-prompt suggestions, in the
 style of Claude Code: after each turn a small model reads the recent
