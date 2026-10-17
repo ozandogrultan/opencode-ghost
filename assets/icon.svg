@@ -11,7 +11,7 @@
 <rect width="128" height="128" rx="30" class="tile"/>
 <rect x="1" y="1" width="126" height="126" rx="29" class="edge"/>
 <path d="M32 96V56A32 32 0 0 1 96 56V96L85.333 88L74.667 96L64 88L53.333 96L42.667 88Z" class="body"/>
-<path d="M45 49L55 58L45 67" class="prompt"/>
-<path d="M68 67H81" class="prompt"/>
+<path d="M48 49L58 58L48 67" class="prompt"/>
+<path d="M65 67H78" class="prompt"/>
 </g>
 </svg>
