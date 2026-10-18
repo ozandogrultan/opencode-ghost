@@ -11,6 +11,9 @@ updates:
       # @opentui/solid pins an exact solid-js peer, so it can only move in
       # lockstep with OpenTUI (bump it in the opentui group instead).
       - dependency-name: solid-js
+      # @opentui/* is held at ^0.5.17 (dependencies); skip 0.6.0+ until the plugin moves to it.
+      - dependency-name: "@opentui/*"
+        versions: [">= 0.6.0"]
     groups:
       opentui:
         patterns:
