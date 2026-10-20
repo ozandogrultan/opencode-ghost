@@ -42,12 +42,12 @@ test("ghost color blends toward dark and light composer backgrounds without chan
       for (let channel = 0; channel < 3; channel++) {
         expect(span.fg!.toInts()[channel]).toBeCloseTo(Math.round(snapshot[channel] * ghostColor.a + bg[channel] * (1 - ghostColor.a)), 0)
       }
-      expect(editor.textColor).toBe(foreground)
+      expect(editor.textColor.equals(foreground)).toBe(true)
       expect(editor.plainText).toBe("")
     }
     inline.clear()
-    expect(editor.placeholder).toBe(original)
-    expect(editor.placeholderColor).toBe(originalColor)
+    expect(editor.placeholder).toEqual(original)
+    expect(editor.placeholderColor.equals(originalColor)).toBe(true)
   })
 })
 
@@ -60,13 +60,13 @@ test("ghost renders inside the real empty textarea without changing buffer or un
     await setup.renderOnce()
     expect(setup.captureCharFrame()).toContain("Next prompt")
     expect(editor.plainText).toBe("")
-    expect(editor.placeholderColor).toBe(muted)
+    expect(editor.placeholderColor.equals(muted)).toBe(true)
     expect(inline.visible(editor, "Next prompt")).toBe(true)
     editor.undo()
     expect(editor.plainText).toBe("")
     inline.clear()
-    expect(editor.placeholder).toBe(original)
-    expect(editor.placeholderColor).toBe(originalColor)
+    expect(editor.placeholder).toEqual(original)
+    expect(editor.placeholderColor.equals(originalColor)).toBe(true)
   })
 })
 
@@ -85,8 +85,8 @@ test("pre-render synchronization preserves host placeholder and color updates wh
     expect(editor.plainText).toBe("")
     setup.renderer.removeFrameCallback(sync)
     inline.clear()
-    expect(editor.placeholder).toBe(updated)
-    expect(editor.placeholderColor).toBe(updatedColor)
+    expect(editor.placeholder).toEqual(updated)
+    expect(editor.placeholderColor.equals(updatedColor)).toBe(true)
   })
 })
 
@@ -99,8 +99,8 @@ test("dismissal does not overwrite host changes made since the last synchronizat
     editor.placeholder = updated
     editor.placeholderColor = updatedColor
     inline.clear()
-    expect(editor.placeholder).toBe(updated)
-    expect(editor.placeholderColor).toBe(updatedColor)
+    expect(editor.placeholder).toEqual(updated)
+    expect(editor.placeholderColor.equals(updatedColor)).toBe(true)
   })
 })
 
@@ -115,8 +115,8 @@ test("typing, ineligible focus/mode, disable/navigation, missing suggestion and 
       if (reason === "unload") inline.clear()
       else inline.sync(reason === "navigation" ? undefined : editor, reason === "dismiss" ? undefined : "Next prompt", muted, reason === "typing")
       expect(inline.visible(editor, "Next prompt")).toBe(false)
-      expect(editor.placeholder).toBe(original)
-      expect(editor.placeholderColor).toBe(color)
+      expect(editor.placeholder).toEqual(original)
+      expect(editor.placeholderColor.equals(color)).toBe(true)
       expect(editor.plainText).toBe(reason === "typing" ? "draft" : "")
       editor.setText("")
     }
@@ -131,7 +131,7 @@ test("replacing editors restores the old editor and snapshots the replacement; d
     setup.renderer.root.add(replacement)
     inline.sync(editor, "Next prompt", muted, true)
     inline.sync(replacement, "Other prompt", muted, true)
-    expect(editor.placeholder).toBe(original)
+    expect(editor.placeholder).toEqual(original)
     expect(replacement.placeholder).toBe("Other prompt")
     inline.clear()
     expect(replacement.placeholder).toBe("Other hint")
@@ -231,8 +231,8 @@ test("blur preserves the rendered ghost while acceptance requires composer focus
     expect(isEmptyComposer(editor, setup.renderer.currentFocusedEditor, "base", true, false)).toBe(true)
     expect(composerAction(editor, () => setup.renderer.currentFocusedEditor, "base", true, true, "Next prompt")).toBe(true)
     inline.clear()
-    expect(editor.placeholder).toBe(original)
-    expect(editor.placeholderColor).toBe(originalColor)
+    expect(editor.placeholder).toEqual(original)
+    expect(editor.placeholderColor.equals(originalColor)).toBe(true)
   })
 })
 

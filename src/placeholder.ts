@@ -6,6 +6,13 @@ export function dimPlaceholderColor(muted: RGBA): RGBA {
   return RGBA.fromValues(muted.r, muted.g, muted.b, muted.a * 0.55)
 }
 
+function samePlaceholderColor(
+  left: PlaceholderEditor["placeholderColor"],
+  right: PlaceholderEditor["placeholderColor"],
+) {
+  return left === right || (typeof left?.equals === "function" && left.equals(right))
+}
+
 export function createInlinePlaceholder() {
   let owned: {
     editor: PlaceholderEditor
@@ -21,7 +28,7 @@ export function createInlinePlaceholder() {
     owned = undefined
     if (editor.isDestroyed) return
     if (editor.placeholder === text) editor.placeholder = original
-    if (editor.placeholderColor === color) editor.placeholderColor = originalColor
+    if (samePlaceholderColor(editor.placeholderColor, color)) editor.placeholderColor = originalColor
   }
 
   return {
@@ -39,10 +46,10 @@ export function createInlinePlaceholder() {
         owned = { editor, original: editor.placeholder, originalColor: editor.placeholderColor, text, color }
       } else {
         if (editor.placeholder !== owned.text) owned.original = editor.placeholder
-        if (editor.placeholderColor !== owned.color) owned.originalColor = editor.placeholderColor
+        if (!samePlaceholderColor(editor.placeholderColor, owned.color)) owned.originalColor = editor.placeholderColor
         owned.text = text
       }
-      if (editor.placeholderColor !== color) editor.placeholderColor = color
+      if (!samePlaceholderColor(editor.placeholderColor, color)) editor.placeholderColor = color
       owned.color = editor.placeholderColor
       if (editor.placeholder !== text) editor.placeholder = text
     },
