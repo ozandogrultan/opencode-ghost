@@ -1,6 +1,6 @@
 {
   "name": "opencode-ghost",
-  "version": "1.3.10",
+  "version": "1.3.11",
   "description": "OpenCode ghost text autosuggest: suggests your next message as dimmed inline ghost text in the empty TUI composer, accepted with Tab or Right arrow.",
   "type": "module",
   "license": "MIT",
