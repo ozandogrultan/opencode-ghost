@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test"
-import { InternalKeyHandler, ScrollBoxRenderable, TextRenderable } from "@opentui/core"
+import { InternalKeyHandler, RGBA, ScrollBoxRenderable, TextRenderable } from "@opentui/core"
 import { testRender, type JSX } from "@opentui/solid"
 import { createRoot, createSignal } from "solid-js"
 import { createStore, produce } from "solid-js/store"
@@ -38,7 +38,7 @@ function makeClient() {
 
 function makeContext(width: number, height: number) {
   const [routeSignal, setRouteSignal] = createSignal<Route>({ type: "session", sessionID: "session-a" })
-  const [muted, setMuted] = createSignal({ r: 0.5, g: 0.5, b: 0.5, a: 1 })
+  const [muted, setMuted] = createSignal(RGBA.fromValues(0.5, 0.5, 0.5, 1))
   let themeReads = 0
   const listeners = new Map<string, Set<(event: any) => void>>()
   const alerts: { title: string; message: string }[] = []
@@ -93,7 +93,7 @@ function makeContext(width: number, height: number) {
       setFrameCallback: (callback: (delta: number) => Promise<void>) => { frameCallback = callback },
       removeFrameCallback: (callback: (delta: number) => Promise<void>) => { if (callback === frameCallback) frameCallbackRemoved = true },
     },
-    theme: { text: { get muted() { themeReads++; return muted() } } },
+    theme: { text: { base: RGBA.fromValues(1, 1, 1, 1), get muted() { themeReads++; return muted() } } },
     storage: {
       store: (_key: string, { initial }: { initial: object }) => {
         const [store, setStore] = createStore(initial)
@@ -284,10 +284,10 @@ test("unload removes event listeners, the frame callback and the composer slot",
 test("plugin unload disposes the theme memo without disposing its host owner", () => {
   const harness = boot()
   try {
-    harness.setMuted({ r: 0.4, g: 0.4, b: 0.4, a: 1 })
+    harness.setMuted(RGBA.fromValues(0.4, 0.4, 0.4, 1))
     harness.unloadPlugin()
     const reads = harness.themeReads()
-    harness.setMuted({ r: 0.3, g: 0.3, b: 0.3, a: 1 })
+    harness.setMuted(RGBA.fromValues(0.3, 0.3, 0.3, 1))
     expect(harness.themeReads()).toBe(reads)
   } finally {
     harness.unload()
