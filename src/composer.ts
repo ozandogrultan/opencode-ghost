@@ -1,15 +1,18 @@
 import type { KeyEvent, KeyHandler, TextareaRenderable } from "@opentui/core"
 
 export function editsComposer(event: { name: string; sequence: string; ctrl: boolean; meta: boolean; option?: boolean; super?: boolean; hyper?: boolean }): boolean {
-  if (event.ctrl && !event.meta && !event.option && !event.super && !event.hyper) return ["v", "h", "d", "k", "u", "w", "j", "m", "-", "."].includes(event.name)
+  if (removesOnly(event)) return true
+  if (event.ctrl && !event.meta && !event.option && !event.super && !event.hyper) return ["v", "j", "m", "-", "."].includes(event.name)
   if (event.super && !event.ctrl && !event.meta && !event.option && !event.hyper && event.name === "z") return true
   if (event.ctrl || event.meta || event.option || event.super || event.hyper) return false
-  if (["return", "enter", "linefeed", "backspace", "delete", "space"].includes(event.name)) return true
+  if (["return", "enter", "linefeed", "space"].includes(event.name)) return true
   return [...event.sequence].length === 1 && !/[\u0000-\u001f\u007f]/.test(event.sequence)
 }
 
 export function removesOnly(event: { name: string; ctrl: boolean; meta: boolean; option?: boolean; super?: boolean; hyper?: boolean }): boolean {
   if (event.ctrl && !event.meta && !event.option && !event.super && !event.hyper) return ["h", "d", "k", "u", "w"].includes(event.name)
+  if ((event.meta || event.option) && !event.ctrl && !event.super && !event.hyper) return ["backspace", "delete", "d"].includes(event.name)
+  if (event.super && !event.ctrl && !event.meta && !event.option && !event.hyper) return event.name === "backspace"
   if (event.ctrl || event.meta || event.option || event.super || event.hyper) return false
   return event.name === "backspace" || event.name === "delete"
 }
@@ -85,8 +88,10 @@ export function composerAction(editor: Editor | undefined, focused: () => unknow
   if (editor.plainText.length !== 0) return false
   try {
     editor.insertText(text)
-  } catch {}
-  return true
+    return true
+  } catch {
+    return false
+  }
 }
 
 export function keyName(event: { name: string; ctrl: boolean; meta: boolean; shift: boolean; option?: boolean; super?: boolean; hyper?: boolean }): string {

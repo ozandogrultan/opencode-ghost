@@ -13,12 +13,28 @@ fi
 targets=()
 install_all=false
 
+usage() {
+  echo "Usage: $(basename "$0") [--all] [config-dir ...]"
+}
+
 for arg in "$@"; do
-  if [ "$arg" = "--all" ]; then
-    install_all=true
-  else
-    targets+=("$arg")
-  fi
+  case "$arg" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --all)
+      install_all=true
+      ;;
+    -*)
+      echo "error: unknown option: $arg" >&2
+      usage >&2
+      exit 1
+      ;;
+    *)
+      targets+=("$arg")
+      ;;
+  esac
 done
 
 if [ "$install_all" = true ] || [ ${#targets[@]} -eq 0 ]; then
@@ -59,22 +75,48 @@ for t in "${targets[@]}"; do
   fi
 done
 
-for target_cfg in ${unique_targets+"${unique_targets[@]}"}; do
-  dest="$target_cfg/plugins/opencode-ghost"
-  entry="$dest"
-  cli="$target_cfg/cli.json"
-  old_tui="$target_cfg/tui.json"
+if ! command -v node >/dev/null 2>&1; then
+  echo "error: node is required to validate configuration before installing; no files were changed" >&2
+  exit 1
+fi
 
-  if ! command -v node >/dev/null 2>&1; then
-    echo "error: node is required to validate configuration before installing; no files were changed" >&2
-    exit 1
-  fi
+node -e '
+  const fs = require("fs")
+  const path = require("path")
+  const [source, ...targetDirs] = process.argv.slice(1)
+  const repoSrc = path.resolve(source)
+  const sourceFiles = fs.readdirSync(source).filter((name) => /\.tsx?$/.test(name))
+  const ownedFiles = new Set(sourceFiles)
 
-  node -e '
-    const fs = require("fs")
-    const path = require("path")
-    const [cliFile, tuiFile, destination, configDir, source] = process.argv.slice(1)
+  const readConfig = (file, key, entry, legacy = false) => {
+    if (!fs.existsSync(file)) return {}
+    const raw = fs.readFileSync(file, "utf8")
+    try {
+      const config = JSON.parse(raw)
+      if (!config || typeof config !== "object" || Array.isArray(config)) throw new Error()
+      if (key in config && !Array.isArray(config[key])) throw new Error()
+      return config
+    } catch {
+      if (legacy && !raw.includes("opencode-ghost")) {
+        console.error(`Warning: skipping unrelated legacy config ${file}; cannot parse it as JSON`)
+        return {}
+      }
+      console.error(`Cannot safely parse ${file} as a JSON object; no files were changed. For JSONC, register manually: "plugins": ["${entry}"]`)
+      process.exit(1)
+    }
+  }
+
+  const cleanOptions = (options) => {
+    if (!options || typeof options !== "object" || Array.isArray(options)) return undefined
+    const { apiKey, endpoint, internalSessionMarkerDir, argHints, ...kept } = options
+    return kept
+  }
+
+  const plans = targetDirs.map((configDir) => {
+    const destination = `${configDir}/plugins/opencode-ghost`
     const entry = path.resolve(destination)
+    const cliFile = `${configDir}/cli.json`
+    const tuiFile = `${configDir}/tui.json`
     const resolvesTo = (spec) => {
       if (typeof spec !== "string") return false
       if (/^opencode-ghost(?:@[^/]+)?$/.test(spec)) return true
@@ -85,33 +127,11 @@ for target_cfg in ${unique_targets+"${unique_targets[@]}"}; do
       } catch {
         return false
       }
-      const repoSrc = path.resolve(source)
       return [entry, path.join(entry, "tui.tsx"), path.join(entry, "src"), path.join(entry, "src", "tui.tsx"), repoSrc, path.join(repoSrc, "tui.tsx")].includes(resolved)
     }
-    const readConfig = (file, key, legacy = false) => {
-      if (!fs.existsSync(file)) return {}
-      const raw = fs.readFileSync(file, "utf8")
-      try {
-        const config = JSON.parse(raw)
-        if (!config || typeof config !== "object" || Array.isArray(config)) throw new Error()
-        if (key in config && !Array.isArray(config[key])) throw new Error()
-        return config
-      } catch {
-        if (legacy && !raw.includes("opencode-ghost")) {
-          console.error(`Warning: skipping unrelated legacy config ${file}; cannot parse it as JSON`)
-          return {}
-        }
-        console.error(`Cannot safely parse ${file} as a JSON object; no files were changed. For JSONC, register manually: "plugins": ["${entry}"]`)
-        process.exit(1)
-      }
-    }
-    const cleanOptions = (options) => {
-      if (!options || typeof options !== "object" || Array.isArray(options)) return undefined
-      const { apiKey, endpoint, internalSessionMarkerDir, argHints, ...kept } = options
-      return kept
-    }
-    const cli = readConfig(cliFile, "plugins")
-    const legacyConfigs = [tuiFile, `${tuiFile}c`].map((file) => ({ file, config: readConfig(file, "plugin", true) }))
+
+    const cli = readConfig(cliFile, "plugins", entry)
+    const legacyConfigs = [tuiFile, `${tuiFile}c`].map((file) => ({ file, config: readConfig(file, "plugin", entry, true) }))
 
     let carriedOptions
     const migrated = []
@@ -156,15 +176,20 @@ for target_cfg in ${unique_targets+"${unique_targets[@]}"}; do
     if (position === undefined) plugins.push(normalized)
     else plugins[position] = normalized
     cli.plugins = plugins
+    return { destination, entry, cliFile, cli, migrated }
+  })
+
+  for (const { destination, entry, cliFile, cli, migrated } of plans) {
     fs.mkdirSync(entry, { recursive: true })
-    for (const name of fs.readdirSync(source).filter((name) => /\.tsx?$/.test(name))) fs.copyFileSync(path.join(source, name), path.join(entry, name))
-    for (const name of ["builtins.ts", "completion.ts"]) fs.rmSync(path.join(entry, name), { force: true })
+    for (const name of sourceFiles) fs.copyFileSync(path.join(source, name), path.join(entry, name))
+    for (const name of fs.readdirSync(entry)) {
+      if (/\.tsx?$/.test(name) && !ownedFiles.has(name)) fs.rmSync(path.join(entry, name), { force: true })
+    }
     fs.writeFileSync(cliFile, JSON.stringify(cli, null, 2) + "\n")
     for (const { file, config } of migrated) fs.writeFileSync(file, JSON.stringify(config, null, 2) + "\n")
-  ' "$cli" "$old_tui" "$entry" "$target_cfg" "$src"
-
-  echo "installed -> $entry"
-  echo "registered in $cli"
-done
+    console.log(`installed -> ${destination}`)
+    console.log(`registered in ${cliFile}`)
+  }
+' "$src" ${unique_targets+"${unique_targets[@]}"}
 echo
 echo "Restart opencode to load it."

@@ -76,11 +76,11 @@ export function resolveOptions(options: Readonly<Record<string, unknown>> | unde
     enabled: typeof input.enabled === "boolean" ? input.enabled : DEFAULTS.enabled,
     model: typeof input.model === "string" && input.model.trim() ? input.model.trim() : undefined,
     acceptKeys: acceptKeys.length > 0 ? acceptKeys : [...DEFAULTS.acceptKeys],
-    maxChars: typeof maxChars === "number" && maxChars > 0 ? maxChars : DEFAULTS.maxChars,
+    maxChars: typeof maxChars === "number" && Number.isInteger(maxChars) && maxChars > 0 ? maxChars : DEFAULTS.maxChars,
     idleDelayMs:
-      typeof idleDelayMs === "number" && idleDelayMs >= 0 ? idleDelayMs : DEFAULTS.idleDelayMs,
+      typeof idleDelayMs === "number" && Number.isFinite(idleDelayMs) && idleDelayMs >= 0 ? idleDelayMs : DEFAULTS.idleDelayMs,
     recentMessages:
-      typeof recentMessages === "number" && recentMessages > 0
+      typeof recentMessages === "number" && Number.isInteger(recentMessages) && recentMessages > 0
         ? recentMessages
         : DEFAULTS.recentMessages,
     system: typeof input.system === "string" && input.system.trim() ? input.system : DEFAULT_SYSTEM,

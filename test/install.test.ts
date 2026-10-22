@@ -185,13 +185,54 @@ describe("install.sh cli.json registration", () => {
     const run = sandbox({ all: true, before: (dir) => {
       const dest = join(dir, "plugins/opencode-ghost")
       mkdirSync(dest, { recursive: true })
-      for (const name of ["builtins.ts", "completion.ts", "unrelated.ts"]) writeFileSync(join(dest, name), "fixture")
+      for (const name of ["builtins.ts", "completion.ts", "stale.ts", "stale.tsx", "unrelated.json"]) writeFileSync(join(dest, name), "fixture")
     } })
     expect(run.result.exitCode).toBe(0)
     expect(existsSync(join(run.configDir, "plugins/opencode-ghost/builtins.ts"))).toBe(false)
     expect(existsSync(join(run.configDir, "plugins/opencode-ghost/completion.ts"))).toBe(false)
-    expect(existsSync(join(run.configDir, "plugins/opencode-ghost/unrelated.ts"))).toBe(true)
+    expect(existsSync(join(run.configDir, "plugins/opencode-ghost/stale.ts"))).toBe(false)
+    expect(existsSync(join(run.configDir, "plugins/opencode-ghost/stale.tsx"))).toBe(false)
+    expect(existsSync(join(run.configDir, "plugins/opencode-ghost/unrelated.json"))).toBe(true)
     expect(existsSync(join(run.home, ".config/opencode/cli.json"))).toBe(false)
+  })
+
+  test("handles --help and rejects unknown flags before touching files", () => {
+    const help = Bun.spawnSync(["bash", join(repoDir, "install.sh"), "--help"], {
+      cwd: repoDir,
+      stdout: "pipe",
+      stderr: "pipe",
+    })
+    expect(help.exitCode).toBe(0)
+    expect(help.stdout.toString()).toContain("Usage:")
+
+    const unknown = Bun.spawnSync(["bash", join(repoDir, "install.sh"), "--bogus"], {
+      cwd: repoDir,
+      stdout: "pipe",
+      stderr: "pipe",
+    })
+    expect(unknown.exitCode).not.toBe(0)
+    expect(unknown.stderr.toString()).toContain("unknown option: --bogus")
+  })
+
+  test("validates all targets before writing any target", () => {
+    const root = mkdtempSync(join(tmpdir(), "ghost-multi-"))
+    roots.push(root)
+    const first = join(root, "first")
+    const second = join(root, "second")
+    mkdirSync(first, { recursive: true })
+    mkdirSync(second, { recursive: true })
+    writeFileSync(join(second, "cli.json"), "{broken")
+
+    const result = Bun.spawnSync(["bash", join(repoDir, "install.sh"), first, second], {
+      cwd: repoDir,
+      env: { ...process.env, HOME: root },
+      stdout: "pipe",
+      stderr: "pipe",
+    })
+    expect(result.exitCode).not.toBe(0)
+    expect(existsSync(join(first, "cli.json"))).toBe(false)
+    expect(existsSync(join(first, "plugins/opencode-ghost"))).toBe(false)
+    expect(readFileSync(join(second, "cli.json"), "utf8")).toBe("{broken")
   })
   test("creates cli.json when it is missing", () => {
     const { result, readCli } = sandbox({})

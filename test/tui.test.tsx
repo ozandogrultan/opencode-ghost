@@ -56,6 +56,7 @@ function makeContext(width: number, height: number) {
   let frameCallbackRemoved = false
   const slotClaims: unknown[] = []
   let slotUnregistered = 0
+  let beforeStoreUpdate: (() => Promise<void>) | undefined
   const { client, state: clientState } = makeClient()
 
   const context = {
@@ -97,7 +98,10 @@ function makeContext(width: number, height: number) {
     storage: {
       store: (_key: string, { initial }: { initial: object }) => {
         const [store, setStore] = createStore(initial)
-        return [store, async (mutation: (draft: typeof initial) => void) => setStore(produce(mutation))] as const
+        return [store, async (mutation: (draft: typeof initial) => void) => {
+          await beforeStoreUpdate?.()
+          setStore(produce(mutation))
+        }] as const
       },
     },
     ui: {
@@ -136,6 +140,8 @@ function makeContext(width: number, height: number) {
     dialog: { get view() { return dialogView }, get options() { return dialogOptions } },
     closeDialog: () => context.ui.dialog.clear(),
     clientState,
+    sessions,
+    setBeforeStoreUpdate: (fn: (() => Promise<void>) | undefined) => { beforeStoreUpdate = fn },
     messages: context.data.session.message,
     toasts,
     setMuted,
@@ -380,5 +386,64 @@ test("diagnostics use a centered bounded dialog with focused keyboard scrolling 
     expect(view.captureCharFrame()).toContain("Ghost — diagnostics")
   } finally {
     harness.unload()
+  }
+})
+
+test("mid-flight session eligibility loss cancels and logs aborted instead of empty or echo", async () => {
+  for (const reply of ["run the new test suite", "NONE", "please add a test"] as const) {
+    const harness = boot()
+    try {
+      harness.clientState.generateText = async () => {
+        harness.sessions.get("session-a")!.status = "running"
+        return { text: reply }
+      }
+      harness.emit("session.execution.succeeded", { id: `ineligible-${reply}`, data: { sessionID: "session-a" } })
+      await tick(30)
+      await harness.dispatchSuggest("log")
+      const log = harness.lastAlert()?.message ?? ""
+      expect(log).toContain("aborted")
+      expect(log).not.toContain("empty")
+      expect(log).not.toContain("echo")
+    } finally {
+      harness.unload()
+    }
+  }
+})
+
+test("NONE replies omit char count on empty diagnostics while whitespace replies retain it", async () => {
+  const harness = boot()
+  try {
+    harness.clientState.generateText = async () => ({ text: "NONE" })
+    harness.emit("session.execution.succeeded", { id: "none-1", data: { sessionID: "session-a" } })
+    await tick(30)
+    await harness.dispatchSuggest("log")
+    expect(harness.lastAlert()?.message).toContain("empty stub/suggest")
+    expect(harness.lastAlert()?.message).not.toContain("4 chars")
+
+    harness.clientState.generateText = async () => ({ text: "   " })
+    harness.emit("session.execution.succeeded", { id: "ws-1", data: { sessionID: "session-a" } })
+    await tick(30)
+    await harness.dispatchSuggest("log")
+    expect(harness.lastAlert()?.message).toContain("3 chars")
+  } finally {
+    harness.unload()
+  }
+})
+
+test("cancels generation queued while updateState is awaiting during toggle or model change", async () => {
+  for (const cmd of [undefined, "model other/model"] as const) {
+    const harness = boot()
+    try {
+      harness.setBeforeStoreUpdate(async () => {
+        harness.emit("session.execution.succeeded", { id: `during-${cmd ?? "toggle"}`, data: { sessionID: "session-a" } })
+      })
+      await harness.dispatchSuggest(cmd)
+      harness.setBeforeStoreUpdate(undefined)
+      await tick(30)
+      await harness.dispatchSuggest("log")
+      expect(harness.lastAlert()?.message).toContain("suggestion none")
+    } finally {
+      harness.unload()
+    }
   }
 })

@@ -108,7 +108,7 @@ test("accept falls through for wrong focus, modes, session, missing suggestion a
   expect(target.plainText).toBe("")
 })
 
-test("accept refuses drafts before mutating, but reports handled once insertText has been invoked", () => {
+test("accept refuses drafts before mutating and returns false when insertText throws", () => {
   const target = editor()
   target.plainText = "user draft"
   expect(composerAction(target, () => target, "base", true, true, "next")).toBe(false)
@@ -118,7 +118,7 @@ test("accept refuses drafts before mutating, but reports handled once insertText
   expect(composerAction(target, () => target, "base", true, true, "next")).toBe(true)
   target.plainText = ""
   target.insertText = () => { throw new Error() }
-  expect(composerAction(target, () => target, "base", true, true, "next")).toBe(true)
+  expect(composerAction(target, () => target, "base", true, true, "next")).toBe(false)
 })
 
 test("modifier matching does not confuse Shift+Tab, Alt or Super with plain acceptance", () => {
@@ -200,12 +200,26 @@ test("key aliases map to canonical modifiers and unknown modifiers are invalid",
   expect(isValidKey("ctrl+")).toBe(false)
 })
 
-test("removal keys are recognised only without other modifiers", () => {
+test("removal keys include plain, ctrl, alt/option word and super line deletion chords", () => {
   const key = { name: "backspace", ctrl: false, meta: false }
   expect(removesOnly(key)).toBe(true)
   expect(removesOnly({ ...key, name: "delete" })).toBe(true)
   expect(removesOnly({ ...key, name: "u", ctrl: true })).toBe(true)
+  expect(removesOnly({ ...key, meta: true })).toBe(true)
+  expect(removesOnly({ ...key, name: "delete", option: true })).toBe(true)
+  expect(removesOnly({ ...key, name: "d", meta: true })).toBe(true)
+  expect(removesOnly({ ...key, super: true })).toBe(true)
+  expect(removesOnly({ ...key, name: "delete", super: true })).toBe(false)
   expect(removesOnly({ ...key, name: "j", ctrl: true })).toBe(false)
   expect(removesOnly({ ...key, name: "a" })).toBe(false)
-  expect(removesOnly({ ...key, meta: true })).toBe(false)
+  expect(removesOnly({ ...key, name: "a", meta: true })).toBe(false)
+
+  const input = new InternalKeyHandler()
+  let cancelled = 0
+  const off = observeComposerInput(input as unknown as KeyHandler, () => false, () => { cancelled++ })
+  for (const mods of [{ meta: true, name: "backspace" }, { option: true, name: "d" }, { super: true, name: "backspace" }] as const) {
+    input.emit("keypress", new KeyEvent({ name: mods.name, ctrl: false, meta: !!("meta" in mods && mods.meta), option: !!("option" in mods && mods.option), super: !!("super" in mods && mods.super), shift: false, sequence: mods.name, raw: mods.name, number: false, eventType: "press", source: "raw" }))
+  }
+  expect(cancelled).toBe(3)
+  off()
 })

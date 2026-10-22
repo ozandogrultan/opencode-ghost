@@ -57,6 +57,15 @@ describe("resolveOptions", () => {
     expect(opts.idleDelayMs).toBe(500)
     expect(opts.recentMessages).toBe(10)
     expect(opts.model).toBeUndefined()
+
+    for (const bad of [0.5, Infinity, -Infinity, NaN]) {
+      const nonInt = resolveOptions({ maxChars: bad, recentMessages: bad })
+      expect(nonInt.maxChars).toBe(120)
+      expect(nonInt.recentMessages).toBe(10)
+    }
+    for (const bad of [Infinity, -Infinity, NaN]) {
+      expect(resolveOptions({ idleDelayMs: bad }).idleDelayMs).toBe(500)
+    }
   })
 })
 

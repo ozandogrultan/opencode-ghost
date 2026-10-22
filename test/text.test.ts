@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { clip, isEcho, normalize, parseModel } from "../src/text"
+import { clip, clipTail, isEcho, normalize, parseModel } from "../src/text"
 
 describe("parseModel", () => {
   test("parses provider/model", () => {
@@ -31,6 +31,11 @@ describe("clip", () => {
     const out = clip("a".repeat(50), 10)
     expect(out.length).toBe(10)
     expect(out.endsWith("…")).toBe(true)
+  })
+
+  test("slices by code points in clip and clipTail without splitting surrogate pairs", () => {
+    expect([...clip("😀".repeat(10), 5)]).toEqual([..."😀😀😀😀", "…"])
+    expect([...clipTail("😀".repeat(10), 5)]).toEqual(["…", ..."😀😀😀😀"])
   })
 })
 
@@ -88,6 +93,8 @@ describe("normalize identifiers", () => {
   test("unwraps bold and the role prefix", () => {
     expect(normalize("**Run the tests** now", 100)).toBe("Run the tests now")
     expect(normalize("Next user message: go ahead", 100)).toBe("go ahead")
+    expect(normalize('Next user message: "yes, go ahead"', 100)).toBe("yes, go ahead")
+    expect(normalize('"Next user message: yes, go ahead"', 100)).toBe("yes, go ahead")
   })
 
   test("truncates on code points", () => {

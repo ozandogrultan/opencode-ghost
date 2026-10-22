@@ -98,7 +98,11 @@ export default Plugin.define({
       try {
         await measure("syncMs", () => context.data.session.message.sync(sessionID))
         syncing = false
-        if (signal.aborted || !canGenerate(sessionID)) return
+        if (signal.aborted) return
+        if (!canGenerate(sessionID)) {
+          cancelSuggestion()
+          return
+        }
         const messages = context.data.session.message.list(sessionID) as readonly TranscriptMessage[]
         const transcript = buildTranscript(messages, opts.recentMessages)
         if (!transcript) return
@@ -108,7 +112,11 @@ export default Plugin.define({
         model = await measure("modelMs", () => explicit
           ? resolveExplicitModel(context.client, location, signal, explicit, catalog)
           : resolveSmallModel(context.client, location, signal, session, catalog))
-        if (signal.aborted || !canGenerate(sessionID)) return
+        if (signal.aborted) return
+        if (!canGenerate(sessionID)) {
+          cancelSuggestion()
+          return
+        }
         if (!model) return
         const raw = await measure("generationMs", () => generateSuggestion(
           context.client,
@@ -124,14 +132,18 @@ export default Plugin.define({
           noteGeneration({ outcome: "error", model: label, detail: errorDetail(failure) })
           return
         }
+        if (!canGenerate(sessionID)) {
+          cancelSuggestion()
+          return
+        }
         if (!raw) {
-          if (!canGenerate(sessionID)) return
           noteGeneration({ outcome: "empty", model: label })
           return
         }
         const clean = normalize(raw, opts.maxChars)
         if (!clean) {
-          noteGeneration({ outcome: "empty", model: label, chars: raw.length })
+          const none = /^none\.?$/i.test(raw.trim())
+          noteGeneration({ outcome: "empty", model: label, ...(none ? {} : { chars: raw.length }) })
           return
         }
         const previous = lastUserText(messages)
@@ -139,7 +151,6 @@ export default Plugin.define({
           noteGeneration({ outcome: "echo", model: label, chars: clean.length })
           return
         }
-        if (!canGenerate(sessionID)) return
         setSuggestion({ sessionID, text: clean })
         noteGeneration({ outcome: "ok", model: label, chars: clean.length })
       } catch (error) {
@@ -299,6 +310,7 @@ export default Plugin.define({
               lifecycle.resetWarning()
               catalog.clear()
               await updateState((draft) => { draft.model = command.model })
+              cancelSuggestion()
               context.ui.toast.show({ message: `Suggestion model: ${state.model ?? opts.model ?? "OpenCode small default"}` })
               return
             }
@@ -351,6 +363,7 @@ export default Plugin.define({
             await updateState((draft) => {
               draft.enabled = next
             })
+            cancelSuggestion()
             if (!next) {
               context.ui.toast.show({ message: "Prompt suggestions: off" })
               return

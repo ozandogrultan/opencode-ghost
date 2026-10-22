@@ -157,14 +157,16 @@ export function collapse(text: string): string {
 
 export function clip(text: string, max: number): string {
   const value = collapse(text)
-  if (value.length <= max) return value
-  return value.slice(0, max - 1).trimEnd() + "…"
+  const points = [...value]
+  if (points.length <= max) return value
+  return points.slice(0, max - 1).join("").trimEnd() + "…"
 }
 
 export function clipTail(text: string, max: number): string {
   const value = collapse(text)
-  if (value.length <= max) return value
-  return "…" + value.slice(value.length - (max - 1)).trimStart()
+  const points = [...value]
+  if (points.length <= max) return value
+  return "…" + points.slice(points.length - (max - 1)).join("").trimStart()
 }
 
 export function normalize(raw: string, maxChars: number): string | undefined {
@@ -176,9 +178,10 @@ export function normalize(raw: string, maxChars: number): string | undefined {
   const cleaned = first
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/^[`"'*\-_#\s]+/, "")
+    .replace(/^next user message:\s*/i, "")
+    .replace(/^[`"'*\-_#\s]+/, "")
     .replace(/[`"'*_#\s]+$/, "")
     .replace(/`+/g, "")
-    .replace(/^next user message:\s*/i, "")
     .trim()
   if (!cleaned || /^none\.?$/i.test(cleaned)) return undefined
   const points = [...cleaned]
