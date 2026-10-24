@@ -19,6 +19,13 @@ a dimmed inline placeholder in the empty composer with
 > Why "ghost": it writes the line you were about to type, then waits for you to
 > take it.
 
+<p align="center">
+  <img src="assets/demo.gif" alt="ghost: a next-prompt suggestion appears in the empty composer and Tab accepts it" width="800">
+</p>
+
+**Install:** add `"opencode-ghost"` to `plugins` in `~/.config/opencode/cli.json`
+and restart opencode ([details](#install)).
+
 ## What it does
 
 - **Suggests your next message.** After a turn finishes, it debounces, builds a
@@ -34,6 +41,17 @@ a dimmed inline placeholder in the empty composer with
   API call; focus changes also reuse it. Navigation keys leave it intact.
 - **`/suggest` controls it.** Toggle suggestions, set a runtime model override,
   or inspect live state and diagnostics; settings persist via the plugin's storage.
+
+## Ghost or Quill?
+
+|             | ghost                                      | [quill](https://github.com/ozandogrultan/opencode-quill) |
+| ----------- | ------------------------------------------ | -------------------------------------------------------- |
+| Suggests    | your whole next prompt                     | the rest of the current word, or the next word            |
+| When        | the composer is empty, after a turn        | while you type a draft                                    |
+| How         | a small model reads the recent conversation | a local n-gram model, no network                         |
+| Model calls | one per turn                               | none                                                      |
+
+Install both: each activates only in its own domain, with no key conflicts.
 
 ## Requirements
 
@@ -266,6 +284,12 @@ bash scripts/changelog.sh check
 
 No build step: like other opencode TUI plugins, the package ships TSX source and
 opencode's runtime transpiles it.
+
+## More OpenCode plugins
+
+- [sesh](https://github.com/ozandogrultan/opencode-sesh) — search, preview, and resume every session across every project.
+- [quill](https://github.com/ozandogrultan/opencode-quill) — local word completion and next-word prediction as you type.
+- [ember](https://github.com/ozandogrultan/opencode-ember) — prices a cold prompt-cache rewrite before you send.
 
 ## Contributing
 
