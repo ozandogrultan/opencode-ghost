@@ -98,24 +98,31 @@ const plans = targetDirs.map((configDir) => {
   return { destination, entry, cliFile, cli, migrated }
 })
 
-// Writes through symlinks so a linked config keeps its link.
+// Writes through symlinks (including dangling chains) so a linked config keeps its link.
 const resolveLink = (file) => {
-  try {
-    return fs.realpathSync(file)
-  } catch {
+  let current = file
+  for (let hops = 0; hops < 40; hops++) {
+    let target
     try {
-      return fs.lstatSync(file).isSymbolicLink() ? path.resolve(path.dirname(file), fs.readlinkSync(file)) : file
+      target = fs.readlinkSync(current)
     } catch {
-      return file
+      return current
     }
+    current = path.resolve(path.dirname(current), target)
   }
+  return current
 }
 
 const writeAtomic = (requested, data) => {
   const file = resolveLink(requested)
   const temp = `${file}.${process.pid}.tmp`
+  let mode
   try {
-    fs.writeFileSync(temp, data)
+    mode = fs.statSync(file).mode & 0o7777
+  } catch {}
+  try {
+    fs.writeFileSync(temp, data, { flag: "wx", ...(mode === undefined ? {} : { mode }) })
+    if (mode !== undefined) fs.chmodSync(temp, mode)
     fs.renameSync(temp, file)
   } catch (error) {
     fs.rmSync(temp, { force: true })

@@ -46,7 +46,7 @@
     "test:unit": "bun test",
     "test:changelog": "bash tests/changelog.sh",
     "typecheck": "tsc --noEmit",
-    "lint:sh": "for script in install.sh tests/*.sh scripts/*.sh; do bash -n \"$script\" || exit; done",
+    "lint:sh": "for script in install.sh tests/*.sh scripts/*.sh; do bash -n \"$script\" || exit; done && node --check scripts/install.mjs",
     "prepublishOnly": "bun run test && bun run typecheck"
   },
   "dependencies": {
