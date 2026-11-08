@@ -15,8 +15,7 @@ export type SmallModelClient = {
 
 export function selectSmallModel(models: readonly ModelInfo[], providerID: string): SuggestionModel | undefined {
   const available = models.filter((model) => model.providerID === providerID && model.enabled &&
-    model.status === "active" && model.capabilities.input.some((item) => item.startsWith("text")) &&
-    model.capabilities.output.some((item) => item.startsWith("text")))
+    model.status === "active" && isTextModel(model))
   for (const family of ["gpt-luna", "gemini-flash-lite", "gemini-flash", "claude-haiku"]) {
     const model = available.find((model) => model.family === family)
     if (model) return { providerID: model.providerID, modelID: model.id }
@@ -140,7 +139,7 @@ function withLowEffortVariant(model: SuggestionModel, info: ModelInfo | undefine
 }
 
 function isTextModel(model: ModelInfo) {
-  const text = (items: readonly string[]) => items.length === 0 || items.some((item) => item.startsWith("text"))
+  const text = (items: readonly string[]) => items.some((item) => item.startsWith("text"))
   return text(model.capabilities.input) && text(model.capabilities.output)
 }
 
@@ -149,6 +148,17 @@ export function parseModel(spec: string | undefined): { providerID: string; mode
   const index = spec.indexOf("/")
   if (index <= 0 || index === spec.length - 1) return undefined
   return { providerID: spec.slice(0, index), modelID: spec.slice(index + 1) }
+}
+
+const segmenter = typeof Intl !== "undefined" && "Segmenter" in Intl ? new Intl.Segmenter(undefined, { granularity: "grapheme" }) : undefined
+
+function graphemes(text: string): string[] {
+  return segmenter ? Array.from(segmenter.segment(text), (part) => part.segment) : [...text]
+}
+
+export function clipCodePointsTail(text: string, max: number): string {
+  const points = [...text]
+  return points.length <= max ? text : points.slice(points.length - max).join("")
 }
 
 export function collapse(text: string): string {
@@ -169,6 +179,10 @@ export function clipTail(text: string, max: number): string {
   return "…" + points.slice(points.length - (max - 1)).join("").trimStart()
 }
 
+export function isNone(text: string): boolean {
+  return /^none\.?$/i.test(text.trim()) || /^NONE(?:[\s.,;:!?\-–—]|$)/.test(text.trimStart())
+}
+
 export function normalize(raw: string, maxChars: number): string | undefined {
   const first = raw
     .split(/\r?\n/)
@@ -183,8 +197,8 @@ export function normalize(raw: string, maxChars: number): string | undefined {
     .replace(/[`"'*_#\s]+$/, "")
     .replace(/`+/g, "")
     .trim()
-  if (!cleaned || /^none\.?$/i.test(cleaned)) return undefined
-  const points = [...cleaned]
+  if (!cleaned || isNone(cleaned)) return undefined
+  const points = graphemes(cleaned)
   if (points.length <= maxChars) return cleaned
   return points.slice(0, maxChars - 1).join("").trimEnd() + "…"
 }

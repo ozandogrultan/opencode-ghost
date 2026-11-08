@@ -10,7 +10,7 @@ import { acceptCommand, acceptShortcuts, ghostBaseLayer, ghostSuggestLayer } fro
 import { parseSuggestCommand, removedOptionKeys, resolveOptions, suggestionModel } from "./options"
 import { createInlinePlaceholder, dimPlaceholderColor } from "./placeholder"
 import { generateSuggestion } from "./stateless"
-import { createCatalog, isEcho, isNoSmallModel, normalize, resolveExplicitModel, resolveSmallModel, type SuggestionModel } from "./text"
+import { createCatalog, isEcho, isNone, isNoSmallModel, normalize, resolveExplicitModel, resolveSmallModel, type SuggestionModel } from "./text"
 import { buildTranscript, lastUserText, suggestionPrompt, type TranscriptMessage } from "./transcript"
 
 type Suggestion = { sessionID: string; text: string }
@@ -142,7 +142,7 @@ export default Plugin.define({
         }
         const clean = normalize(raw, opts.maxChars)
         if (!clean) {
-          const none = /^none\.?$/i.test(raw.trim())
+          const none = isNone(raw.trim().split(/\r?\n/)[0] ?? "")
           noteGeneration({ outcome: "empty", model: label, ...(none ? {} : { chars: raw.length }) })
           return
         }
