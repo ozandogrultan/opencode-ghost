@@ -46,7 +46,7 @@ export function isEmptyComposer(editor: TextareaRenderable | undefined, focused:
   return !!editor && editor === focused && editor.focused && isEligibleComposer(editor, mode, normal, selected)
 }
 
-export function composerBlocker(editor: TextareaRenderable | undefined, mode: string, normal: boolean, selected: boolean, markCount?: (editor: TextareaRenderable) => number): string | undefined {
+export function composerBlocker(editor: TextareaRenderable | undefined, mode: string, normal: boolean, selected: boolean): string | undefined {
   if (!editor) return "no composer editor"
   if (!editor.parent || editor.parent.isDestroyed) return "editor detached"
   if (!normal) return "prompt not in normal mode"
@@ -56,7 +56,7 @@ export function composerBlocker(editor: TextareaRenderable | undefined, mode: st
   if (editor.plainText !== "") return "composer not empty"
   if (editor.hasSelection()) return "editor has a selection"
   if (editor.traits.capture?.includes("navigate")) return "editor captures navigation"
-  const marks = markCount ? markCount(editor) : editor.extmarks.getAll().length
+  const marks = editor.extmarks.getAll().length
   if (marks !== 0) return `editor has ${marks} extmark(s)`
 }
 

@@ -1,7 +1,7 @@
 import { expect, spyOn, test } from "bun:test"
 import { InternalKeyHandler, RGBA, ScrollBoxRenderable, TextRenderable } from "@opentui/core"
 import { testRender, type JSX } from "@opentui/solid"
-import { createRoot, createSignal } from "solid-js"
+import { createEffect, createRoot, createSignal } from "solid-js"
 import { createStore, produce } from "solid-js/store"
 import type { Context } from "@opencode/plugin/tui/context"
 import plugin from "../src/tui"
@@ -46,7 +46,8 @@ function makeContext(width: number, height: number) {
   let dialogView: Awaited<ReturnType<typeof testRender>> | undefined
   let dialogOptions: { size?: string; centered?: boolean } = {}
   const toasts: { message: string; variant?: string }[] = []
-  const commands = new Map<string, { run: (input?: string) => unknown }>()
+  const commands = new Map<string, { enabled?: boolean | (() => boolean); run: (input?: string) => unknown }>()
+  const layers: { target?: unknown }[] = []
   const sessions = new Map<string, { status: "idle" | "running"; messages: { type: string; text: string }[] }>([
     ["session-a", { status: "idle", messages: [{ type: "user", text: "please add a test" }] }],
     ["session-b", { status: "idle", messages: [{ type: "user", text: "please add a test" }] }],
@@ -81,8 +82,13 @@ function makeContext(width: number, height: number) {
       location: { default: () => location },
     },
     keymap: {
-      layer: (factory: () => { commands?: { id?: string; run: (input?: string) => unknown }[] }) => {
-        for (const command of factory().commands ?? []) if (command.id) commands.set(command.id, command)
+      layer: (factory: () => { target?: () => unknown; commands?: { id?: string; enabled?: boolean | (() => boolean); run: (input?: string) => unknown }[] }) => {
+        createEffect(() => {
+          const layer = factory()
+          layers.push(layer)
+          if (layer.target && !layer.target()) return
+          for (const command of layer.commands ?? []) if (command.id) commands.set(command.id, command)
+        })
       },
       mode: { current: () => "base" },
       shortcuts: () => [],
@@ -140,6 +146,8 @@ function makeContext(width: number, height: number) {
     dialog: { get view() { return dialogView }, get options() { return dialogOptions } },
     closeDialog: () => context.ui.dialog.clear(),
     clientState,
+    commands,
+    layers,
     sessions,
     setBeforeStoreUpdate: (fn: (() => Promise<void>) | undefined) => { beforeStoreUpdate = fn },
     messages: context.data.session.message,
@@ -460,5 +468,20 @@ test("a quick double toggle flips twice and toasts the values actually written",
     } finally {
       harness.unload()
     }
+  }
+})
+
+test("accept layer has no target and its commands are enabled only for an eligible composer", async () => {
+  const harness = boot()
+  try {
+    harness.emit("session.execution.succeeded", { id: "evt-accept", data: { sessionID: "session-a" } })
+    await tick(40)
+    const accept = harness.commands.get("ghost.accept.tab")
+    expect(accept).toBeDefined()
+    expect(harness.layers.every((layer) => layer.target === undefined)).toBe(true)
+    const enabled = accept!.enabled as () => boolean
+    expect(enabled()).toBe(false)
+  } finally {
+    harness.unload()
   }
 })

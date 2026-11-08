@@ -10,7 +10,7 @@ import { acceptCommand, acceptShortcuts, ghostBaseLayer, ghostSuggestLayer } fro
 import { parseSuggestCommand, removedOptionKeys, resolveOptions, suggestionModel } from "./options"
 import { createInlinePlaceholder, dimPlaceholderColor } from "./placeholder"
 import { generateSuggestion } from "./stateless"
-import { createCatalog, isEcho, isNone, isNoSmallModel, normalize, resolveExplicitModel, resolveSmallModel, type SuggestionModel } from "./text"
+import { createCatalog, graphemeLength, isEcho, isNone, isNoSmallModel, normalize, resolveExplicitModel, resolveSmallModel, type SuggestionModel } from "./text"
 import { buildTranscript, lastUserText, suggestionPrompt, type TranscriptMessage } from "./transcript"
 
 type Suggestion = { sessionID: string; text: string }
@@ -143,16 +143,16 @@ export default Plugin.define({
         const clean = normalize(raw, opts.maxChars)
         if (!clean) {
           const none = isNone(raw.trim().split(/\r?\n/)[0] ?? "")
-          noteGeneration({ outcome: "empty", model: label, ...(none ? {} : { chars: raw.length }) })
+          noteGeneration({ outcome: "empty", model: label, ...(none ? {} : { chars: graphemeLength(raw) }) })
           return
         }
         const previous = lastUserText(messages)
         if (previous && isEcho(clean, previous)) {
-          noteGeneration({ outcome: "echo", model: label, chars: clean.length })
+          noteGeneration({ outcome: "echo", model: label, chars: graphemeLength(clean) })
           return
         }
         setSuggestion({ sessionID, text: clean })
-        noteGeneration({ outcome: "ok", model: label, chars: clean.length })
+        noteGeneration({ outcome: "ok", model: label, chars: graphemeLength(clean) })
       } catch (error) {
         if (signal.aborted) return
         if (syncing) {
@@ -193,22 +193,12 @@ export default Plugin.define({
     const displayLog = createDiagnostics()
     let lastDisplay: string | undefined
 
-    const MARK_CACHE_MS = 250
-    let markCache: { editor: TextareaRenderable; count: number; at: number } | undefined
-    const markCount = (editor: TextareaRenderable) => {
-      const at = Date.now()
-      if (markCache?.editor === editor && at - markCache.at < MARK_CACHE_MS) return markCache.count
-      const count = editor.extmarks.getAll().length
-      markCache = { editor, count, at }
-      return count
-    }
-
     const inspect = (current: Suggestion) => {
       const entry = composers.get(current.sessionID)
       const found = lookupComposer(entry?.marker)
       const allowed = canGenerate(current.sessionID)
       const blocker = found.editor
-        ? composerBlocker(found.editor, context.keymap.mode.current(), entry?.normal() === true, context.renderer.hasSelection, markCount)
+        ? composerBlocker(found.editor, context.keymap.mode.current(), entry?.normal() === true, context.renderer.hasSelection)
         : found.reason
       return { editor: found.editor, allowed, blocker }
     }
@@ -230,7 +220,7 @@ export default Plugin.define({
       const recorded = displayLog.record({
         sessionID: current.sessionID,
         outcome: status === "shown" ? "shown" : "hidden",
-        chars: current.text.length,
+        chars: graphemeLength(current.text),
         ...(status === "shown" ? {} : { detail: status }),
       })
       if (state.debug === true) context.ui.toast.show({ title: "Ghost", message: formatDiagnostic(recorded) })
@@ -293,7 +283,6 @@ export default Plugin.define({
     const pending = () => lifecycle.active() || suggestion() !== undefined
 
     const offInput = observeComposerInput(context.renderer.keyInput, (event) => {
-      markCache = undefined
       if (!pending()) return true
       const editor = targetedEditor()
       if (!editor) return true
@@ -303,7 +292,6 @@ export default Plugin.define({
       syncInline()
       return Boolean(inline.visible(editor, current.text) && acceptShortcuts(opts.acceptKeys, context.keymap.shortcuts).has(keyName(event)) && canGenerate(current.sessionID) && isComposerEmpty(current.sessionID))
     }, () => {
-      markCache = undefined
       if (!pending() || !targetedEditor()) return
       lifecycle.interrupt()
       inline.clear()
@@ -312,7 +300,8 @@ export default Plugin.define({
     const canAccept = (sessionID: string) => {
       const current = suggestion()
       if (!current || current.sessionID !== sessionID) return false
-      return inline.visible(getComposer(sessionID).editor, current.text) && canGenerate(sessionID) && isComposerEmpty(sessionID)
+      if (!canGenerate(sessionID)) return false
+      return inline.visible(getComposer(sessionID).editor, current.text) && isComposerEmpty(sessionID)
     }
 
     const acceptLayer = () => ghostBaseLayer(
@@ -320,7 +309,6 @@ export default Plugin.define({
         const route = context.ui.router.current()
         return route.type === "session" ? route.sessionID : undefined
       }, () => suggestion()?.sessionID, act, canAccept)),
-      targetedEditor,
     )
     const suggestLayer = () => ghostSuggestLayer(state.enabled, async (input) => {
       const command = parseSuggestCommand(input)
@@ -352,7 +340,7 @@ export default Plugin.define({
         const editor = lookupComposer(entry?.marker).editor
         const live = [
           `route ${route.type}`,
-          `suggestion ${current ? `retained (${current.text.length} chars)` : "none"}`,
+          `suggestion ${current ? `retained (${graphemeLength(current.text)} chars)` : "none"}`,
           `display ${current ? displayStatus(current) : "n/a"}`,
           `focused ${editor ? (editor === context.renderer.currentFocusedEditor && editor.focused ? "yes" : "no") : "n/a"}`,
           `mode ${context.keymap.mode.current()}`,

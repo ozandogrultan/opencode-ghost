@@ -25,8 +25,8 @@ export function acceptShortcuts(acceptKeys: readonly string[], shortcuts: (id: s
   }))
 }
 
-export function ghostBaseLayer(composerCommands: KeymapCommand[], target?: KeymapLayer["target"]): KeymapLayer {
-  return { mode: "base", priority: 2, ...(target ? { target } : {}), commands: composerCommands }
+export function ghostBaseLayer(composerCommands: KeymapCommand[]): KeymapLayer {
+  return { mode: "base", priority: 2, commands: composerCommands }
 }
 
 export function ghostSuggestLayer(enabled: boolean, suggest: KeymapCommand["run"]): KeymapLayer {

@@ -81,9 +81,3 @@ test("accept command is enabled only for the current session's eligible composer
   suggestion = undefined
   expect(enabled()).toBe(false)
 })
-
-test("base layer carries the composer target", () => {
-  const target = () => undefined
-  expect(ghostBaseLayer([], target).target).toBe(target)
-  expect(ghostBaseLayer([]).target).toBeUndefined()
-})

@@ -152,6 +152,10 @@ export function parseModel(spec: string | undefined): { providerID: string; mode
 
 const segmenter = typeof Intl !== "undefined" && "Segmenter" in Intl ? new Intl.Segmenter(undefined, { granularity: "grapheme" }) : undefined
 
+export function graphemeLength(text: string): number {
+  return graphemes(text).length
+}
+
 function graphemes(text: string): string[] {
   return segmenter ? Array.from(segmenter.segment(text), (part) => part.segment) : [...text]
 }
@@ -180,7 +184,7 @@ export function clipTail(text: string, max: number): string {
 }
 
 export function isNone(text: string): boolean {
-  return /^none\.?$/i.test(text.trim()) || /^NONE(?:[\s.,;:!?\-–—]|$)/.test(text.trimStart())
+  return /^none\.?$/i.test(text.trim()) || /^[*_`\s]*NONE(?:[\s.,;:!?\-–—*`]|$)/.test(text)
 }
 
 export function normalize(raw: string, maxChars: number): string | undefined {
