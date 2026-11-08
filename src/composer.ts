@@ -6,7 +6,7 @@ export function editsComposer(event: { name: string; sequence: string; ctrl: boo
   if (event.super && !event.ctrl && !event.meta && !event.option && !event.hyper && event.name === "z") return true
   if (event.ctrl || event.meta || event.option || event.super || event.hyper) return false
   if (["return", "enter", "linefeed", "space"].includes(event.name)) return true
-  return [...event.sequence].length === 1 && !/[\u0000-\u001f\u007f]/.test(event.sequence)
+  return event.sequence.length > 0 && !/[\u0000-\u001f\u007f-\u009f]/.test(event.sequence)
 }
 
 export function removesOnly(event: { name: string; ctrl: boolean; meta: boolean; option?: boolean; super?: boolean; hyper?: boolean }): boolean {
@@ -46,7 +46,7 @@ export function isEmptyComposer(editor: TextareaRenderable | undefined, focused:
   return !!editor && editor === focused && editor.focused && isEligibleComposer(editor, mode, normal, selected)
 }
 
-export function composerBlocker(editor: TextareaRenderable | undefined, mode: string, normal: boolean, selected: boolean): string | undefined {
+export function composerBlocker(editor: TextareaRenderable | undefined, mode: string, normal: boolean, selected: boolean, markCount?: (editor: TextareaRenderable) => number): string | undefined {
   if (!editor) return "no composer editor"
   if (!editor.parent || editor.parent.isDestroyed) return "editor detached"
   if (!normal) return "prompt not in normal mode"
@@ -56,7 +56,7 @@ export function composerBlocker(editor: TextareaRenderable | undefined, mode: st
   if (editor.plainText !== "") return "composer not empty"
   if (editor.hasSelection()) return "editor has a selection"
   if (editor.traits.capture?.includes("navigate")) return "editor captures navigation"
-  const marks = editor.extmarks.getAll().length
+  const marks = markCount ? markCount(editor) : editor.extmarks.getAll().length
   if (marks !== 0) return `editor has ${marks} extmark(s)`
 }
 
@@ -77,10 +77,6 @@ export function locateComposerEditor<T extends EditorNode>(marker: EditorNode | 
     if (found.length === 1) return isComposer(found[0]) ? { editor: found[0] } : { reason: "editor lacks getClipboardText (not the host composer)" }
   }
   return { reason: "no editor found above the marker" }
-}
-
-export function findComposerEditor<T extends EditorNode>(marker: EditorNode | undefined, isEditor: (node: EditorNode) => node is T, isComposer: (editor: T) => boolean): T | undefined {
-  return locateComposerEditor(marker, isEditor, isComposer).editor
 }
 
 export function composerAction(editor: Editor | undefined, focused: () => unknown, mode: string, normal: boolean, allowed: boolean, text: string | undefined): boolean {

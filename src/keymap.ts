@@ -3,11 +3,14 @@ import { canonicalKey } from "./composer"
 
 export const acceptCommandId = (key: string) => `ghost.accept.${key}`
 
-export function acceptCommand(key: string, session: () => string | undefined, suggestionSession: () => string | undefined, act: (sessionID: string) => boolean): KeymapCommand {
+export function acceptCommand(key: string, session: () => string | undefined, suggestionSession: () => string | undefined, act: (sessionID: string) => boolean, eligible: (sessionID: string) => boolean = () => true): KeymapCommand {
   return {
     id: acceptCommandId(key),
     bind: key,
-    enabled: () => Boolean(suggestionSession()),
+    enabled: () => {
+      const sessionID = session()
+      return !!sessionID && suggestionSession() === sessionID && eligible(sessionID)
+    },
     run: () => {
       const sessionID = session()
       if (!sessionID || suggestionSession() !== sessionID || !act(sessionID)) return false
@@ -22,8 +25,8 @@ export function acceptShortcuts(acceptKeys: readonly string[], shortcuts: (id: s
   }))
 }
 
-export function ghostBaseLayer(composerCommands: KeymapCommand[]): KeymapLayer {
-  return { mode: "base", priority: 2, commands: composerCommands }
+export function ghostBaseLayer(composerCommands: KeymapCommand[], target?: KeymapLayer["target"]): KeymapLayer {
+  return { mode: "base", priority: 2, ...(target ? { target } : {}), commands: composerCommands }
 }
 
 export function ghostSuggestLayer(enabled: boolean, suggest: KeymapCommand["run"]): KeymapLayer {
@@ -39,12 +42,4 @@ export function ghostSuggestLayer(enabled: boolean, suggest: KeymapCommand["run"
       run: suggest,
     }],
   }
-}
-
-export function ghostKeymapLayers(
-  composerCommands: KeymapCommand[],
-  enabled: boolean,
-  suggest: KeymapCommand["run"],
-): KeymapLayer[] {
-  return [ghostBaseLayer(composerCommands), ghostSuggestLayer(enabled, suggest)]
 }

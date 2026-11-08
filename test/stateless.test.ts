@@ -6,18 +6,16 @@ function fakeClient(impl: GenerateClient["generate"]["text"]): GenerateClient {
 }
 
 describe("generateSuggestion", () => {
-  test("abort and route changes during model resolution prevent native generation", async () => {
+  test("abort and route changes before the request prevent native generation", async () => {
     for (const reason of ["abort", "route", "unchanged"]) {
       const controller = new AbortController()
       let currentSession = "current"
       let requests = 0
-      let resolve!: (model: { providerID: string; modelID: string }) => void
-      const model = new Promise<{ providerID: string; modelID: string }>((done) => { resolve = done })
+      const model = { providerID: "a", modelID: "b" }
       const client = fakeClient(async () => { requests++; return { text: "next" } })
-      const pending = generateSuggestion(client, "prompt", model, controller.signal, undefined, () => currentSession === "current")
       if (reason === "abort") controller.abort()
       if (reason === "route") currentSession = "other"
-      resolve({ providerID: "a", modelID: "b" })
+      const pending = generateSuggestion(client, "prompt", model, controller.signal, undefined, () => currentSession === "current")
       expect(await pending).toBe(reason === "unchanged" ? "next" : undefined)
       expect(requests).toBe(reason === "unchanged" ? 1 : 0)
     }

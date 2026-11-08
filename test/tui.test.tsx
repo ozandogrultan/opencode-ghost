@@ -447,3 +447,18 @@ test("cancels generation queued while updateState is awaiting during toggle or m
     }
   }
 })
+
+test("a quick double toggle flips twice and toasts the values actually written", async () => {
+  for (const cmd of [undefined, "debug"] as const) {
+    const harness = boot()
+    try {
+      harness.setBeforeStoreUpdate(async () => { await tick(10) })
+      await Promise.all([harness.dispatchSuggest(cmd), harness.dispatchSuggest(cmd)])
+      harness.setBeforeStoreUpdate(undefined)
+      const messages = harness.toasts.map((toast) => toast.message)
+      expect(messages).toEqual(cmd === "debug" ? ["Ghost debug: on", "Ghost debug: off"] : ["Prompt suggestions: off", "Prompt suggestions: on"])
+    } finally {
+      harness.unload()
+    }
+  }
+})

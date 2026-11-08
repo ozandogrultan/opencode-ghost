@@ -32,14 +32,14 @@ function pause(ms: number, signal: AbortSignal): Promise<void> {
 export async function generateSuggestion(
   client: GenerateClient,
   prompt: string,
-  model: SuggestionModel | undefined | Promise<SuggestionModel | undefined>,
+  model: SuggestionModel | undefined,
   signal: AbortSignal,
   onError?: (error: unknown) => void,
   allowed: () => boolean = () => true,
   retryDelays: readonly number[] = MODEL_UNAVAILABLE_RETRY_MS,
 ): Promise<string | undefined> {
   try {
-    const resolved = await model
+    const resolved = model
     if (signal.aborted || !allowed() || !resolved) return undefined
     const input = { prompt, model: { id: resolved.modelID, providerID: resolved.providerID, ...(resolved.variant ? { variant: resolved.variant } : {}) } }
     for (let attempt = 0; ; attempt++) {
