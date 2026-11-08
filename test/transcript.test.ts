@@ -87,3 +87,14 @@ describe("lastUserText", () => {
     expect(lastUserText([{ type: "assistant", content: [] }])).toBe("")
   })
 })
+
+describe("buildTranscript truncation", () => {
+  test("never splits a surrogate pair at the transcript cut", () => {
+    for (const pad of ["", "a"]) {
+      const messages: TranscriptMessage[] = Array.from({ length: 12 }, (_, i) => ({ type: "user", text: pad + "😀".repeat(i % 2 === 0 ? 700 : 701) }))
+      const transcript = buildTranscript(messages, 12)
+      expect(transcript.isWellFormed()).toBe(true)
+      expect(transcript.length).toBeGreaterThan(5000)
+    }
+  })
+})

@@ -24,7 +24,8 @@ behaviour.
   outlined DejaVu Sans Mono Bold paths, no font dependency.
 - `test/` — bun tests (`bun test`); `bunfig.toml` preloads OpenTUI's reactive Solid build.
 - `tests/changelog.sh`, `scripts/changelog.sh` — release bookkeeping.
-- `install.sh` — copies the plugin into opencode's config and registers it in
+- `install.sh` + `scripts/install.mjs` — the bash wrapper resolves targets and
+  `scripts/install.mjs` copies the plugin into opencode's config and registers it in
   `cli.json` by directory, migrating old v1 `tui.json`/`tui.jsonc` registrations
   if found. Supports explicit config directories and `--all`.
 

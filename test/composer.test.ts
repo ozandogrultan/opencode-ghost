@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
 import { InternalKeyHandler, KeyEvent, type KeyHandler } from "@opentui/core"
-import { canonicalKey, isValidKey, removesOnly, composerAction, composerBlocker, findComposerEditor, keyName, locateComposerEditor, observeComposerInput, type Editor, type EditorNode } from "../src/composer"
+import { canonicalKey, isValidKey, removesOnly, composerAction, composerBlocker, editsComposer, keyName, locateComposerEditor, observeComposerInput, type Editor, type EditorNode } from "../src/composer"
 import { createLifecycle } from "../src/lifecycle"
 
 test("input cancellation runs before consuming keymap listeners, aborts active generation and cleans up", async () => {
@@ -143,7 +143,7 @@ test("footer ancestry identifies only its own composer and refuses missing or am
   attach(root, prompt, modal)
   attach(prompt, footer, target)
   attach(footer, marker)
-  const find = () => findComposerEditor(marker, (item): item is Node => (item as Node).editor === true, (item) => item.composer === true)
+  const find = () => locateComposerEditor(marker, (item): item is Node => (item as Node).editor === true, (item) => item.composer === true).editor
   expect(find()).toBe(target)
   target.composer = false
   expect(find()).toBeUndefined()
@@ -152,7 +152,7 @@ test("footer ancestry identifies only its own composer and refuses missing or am
   expect(find()).toBeUndefined()
   marker.isDestroyed = true
   expect(find()).toBeUndefined()
-  expect(findComposerEditor(undefined, (item): item is Node => false, () => true)).toBeUndefined()
+  expect(locateComposerEditor(undefined, (item): item is Node => false, () => true).editor).toBeUndefined()
 })
 
 test("locateComposerEditor and composerBlocker name the reason a composer is refused", () => {
@@ -222,4 +222,18 @@ test("removal keys include plain, ctrl, alt/option word and super line deletion 
   }
   expect(cancelled).toBe(3)
   off()
+})
+
+test("editsComposer treats multi-code-point text as an edit and keeps keys and escapes non-editing", () => {
+  const key = (name: string, sequence: string, mods: Partial<{ ctrl: boolean; meta: boolean }> = {}) => ({ name, sequence, ctrl: false, meta: false, ...mods })
+  expect(editsComposer(key("a", "a"))).toBe(true)
+  expect(editsComposer(key("", "你好"))).toBe(true)
+  expect(editsComposer(key("e", "e\u0301"))).toBe(true)
+  expect(editsComposer(key("", "😀"))).toBe(true)
+  expect(editsComposer(key("up", "\u001b[A"))).toBe(false)
+  expect(editsComposer(key("tab", "\t"))).toBe(false)
+  expect(editsComposer(key("escape", "\u001b"))).toBe(false)
+  expect(editsComposer(key("", ""))).toBe(false)
+  expect(editsComposer(key("a", "a", { meta: true }))).toBe(false)
+  expect(editsComposer(key("a", "\u0001", { ctrl: true }))).toBe(false)
 })

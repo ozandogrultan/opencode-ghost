@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { clip, clipTail, isEcho, normalize, parseModel } from "../src/text"
+import { clip, clipTail, isEcho, isNone, normalize, parseModel } from "../src/text"
 
 describe("parseModel", () => {
   test("parses provider/model", () => {
@@ -100,5 +100,27 @@ describe("normalize identifiers", () => {
   test("truncates on code points", () => {
     const out = normalize("😀".repeat(20), 5)
     expect([...out!]).toEqual([..."😀😀😀😀", "…"])
+  })
+})
+
+describe("normalize", () => {
+  test("never splits a ZWJ emoji sequence when truncating", () => {
+    const family = "👨‍👩‍👧‍👦"
+    expect(normalize(`ab${family}${family}`, 4)).toBe(`ab${family}${family}`)
+    expect(normalize(`a${family}${family}${family}`, 3)).toBe(`a${family}…`)
+    expect(normalize(`${family}${family}${family}`, 2)).toBe(`${family}…`)
+  })
+
+  test("treats NONE followed by punctuation or more text as no suggestion", () => {
+    for (const raw of ["NONE", "NONE.", "none", "NONE - done", "NONE: nothing fits", "NONE, thanks", "**NONE**"]) {
+      expect(normalize(raw, 100)).toBeUndefined()
+    }
+    expect(normalize("NONE\nrun the tests", 100)).toBeUndefined()
+  })
+
+  test("keeps real prompts that merely start with none-like words", () => {
+    expect(normalize("NONEXISTENT file handling", 100)).toBe("NONEXISTENT file handling")
+    expect(normalize("None of the tests pass, fix them", 100)).toBe("None of the tests pass, fix them")
+    expect(isNone("NONE_ENTITY")).toBe(false)
   })
 })

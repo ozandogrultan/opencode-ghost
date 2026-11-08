@@ -10,7 +10,7 @@ import { acceptCommand, acceptShortcuts, ghostBaseLayer, ghostSuggestLayer } fro
 import { parseSuggestCommand, removedOptionKeys, resolveOptions, suggestionModel } from "./options"
 import { createInlinePlaceholder, dimPlaceholderColor } from "./placeholder"
 import { generateSuggestion } from "./stateless"
-import { createCatalog, isEcho, isNoSmallModel, normalize, resolveExplicitModel, resolveSmallModel, type SuggestionModel } from "./text"
+import { createCatalog, graphemeLength, isEcho, isNone, isNoSmallModel, normalize, resolveExplicitModel, resolveSmallModel, type SuggestionModel } from "./text"
 import { buildTranscript, lastUserText, suggestionPrompt, type TranscriptMessage } from "./transcript"
 
 type Suggestion = { sessionID: string; text: string }
@@ -142,17 +142,17 @@ export default Plugin.define({
         }
         const clean = normalize(raw, opts.maxChars)
         if (!clean) {
-          const none = /^none\.?$/i.test(raw.trim())
-          noteGeneration({ outcome: "empty", model: label, ...(none ? {} : { chars: raw.length }) })
+          const none = isNone(raw.trim().split(/\r?\n/)[0] ?? "")
+          noteGeneration({ outcome: "empty", model: label, ...(none ? {} : { chars: graphemeLength(raw) }) })
           return
         }
         const previous = lastUserText(messages)
         if (previous && isEcho(clean, previous)) {
-          noteGeneration({ outcome: "echo", model: label, chars: clean.length })
+          noteGeneration({ outcome: "echo", model: label, chars: graphemeLength(clean) })
           return
         }
         setSuggestion({ sessionID, text: clean })
-        noteGeneration({ outcome: "ok", model: label, chars: clean.length })
+        noteGeneration({ outcome: "ok", model: label, chars: graphemeLength(clean) })
       } catch (error) {
         if (signal.aborted) return
         if (syncing) {
@@ -220,7 +220,7 @@ export default Plugin.define({
       const recorded = displayLog.record({
         sessionID: current.sessionID,
         outcome: status === "shown" ? "shown" : "hidden",
-        chars: current.text.length,
+        chars: graphemeLength(current.text),
         ...(status === "shown" ? {} : { detail: status }),
       })
       if (state.debug === true) context.ui.toast.show({ title: "Ghost", message: formatDiagnostic(recorded) })
@@ -297,81 +297,92 @@ export default Plugin.define({
       inline.clear()
     })
 
+    const canAccept = (sessionID: string) => {
+      const current = suggestion()
+      if (!current || current.sessionID !== sessionID) return false
+      if (!canGenerate(sessionID)) return false
+      return inline.visible(getComposer(sessionID).editor, current.text) && isComposerEmpty(sessionID)
+    }
+
     const acceptLayer = () => ghostBaseLayer(
       opts.acceptKeys.map((key) => acceptCommand(key, () => {
         const route = context.ui.router.current()
         return route.type === "session" ? route.sessionID : undefined
-      }, () => suggestion()?.sessionID, act)),
+      }, () => suggestion()?.sessionID, act, canAccept)),
     )
     const suggestLayer = () => ghostSuggestLayer(state.enabled, async (input) => {
-            const command = parseSuggestCommand(input)
-            if (command.type === "model") {
-              cancelSuggestion()
-              lifecycle.resetWarning()
-              catalog.clear()
-              await updateState((draft) => { draft.model = command.model })
-              cancelSuggestion()
-              context.ui.toast.show({ message: `Suggestion model: ${state.model ?? opts.model ?? "OpenCode small default"}` })
-              return
-            }
-            if (command.type === "debug") {
-              const next = command.value ?? (state.debug !== true)
-              await updateState((draft) => { draft.debug = next })
-              context.ui.toast.show({ message: `Ghost debug: ${next ? "on" : "off"}` })
-              return
-            }
-            if (command.type === "log") {
-              const override = state.model ?? opts.model
-              const summary = `suggestions ${state.enabled ? "on" : "off"}, debug ${state.debug === true ? "on" : "off"}, model ${override ?? "OpenCode small default"}`
-              const current = suggestion()
-              const color = ghostColor()
-              const route = context.ui.router.current()
-              const entry = route.type === "session" ? composers.get(route.sessionID) : undefined
-              const editor = lookupComposer(entry?.marker).editor
-              const live = [
-                `route ${route.type}`,
-                `suggestion ${current ? `retained (${current.text.length} chars)` : "none"}`,
-                `display ${current ? displayStatus(current) : "n/a"}`,
-                `focused ${editor ? (editor === context.renderer.currentFocusedEditor && editor.focused ? "yes" : "no") : "n/a"}`,
-                `mode ${context.keymap.mode.current()}`,
-                `color rgba(${[color.r, color.g, color.b, color.a].map((value) => value.toFixed(2)).join(", ")})`,
-              ].join("\n")
-               const message = `${summary}\n\nNow\n${live}\n\nDisplay changes\n${displayLog.list().length ? formatDiagnostics(displayLog.list()) : "None recorded yet."}\n\nGenerations\n${formatDiagnostics(diagnostics.list())}`
-               context.ui.dialog.set({ size: "large", centered: true })
-               context.ui.dialog.show(() => {
-                 const dimensions = useTerminalDimensions()
-                 return (
-                   <box id="ghost-diagnostics" width="100%" paddingX={2} paddingY={1} gap={1}>
-                     <box flexDirection="row" justifyContent="space-between" flexShrink={0}>
-                       <text fg={context.theme.text.base}><b>Ghost — diagnostics</b></text>
-                       <text fg={context.theme.text.muted}>esc</text>
-                     </box>
-                     <scrollbox id="ghost-diagnostics-scroll" height={Math.max(1, Math.min(28, dimensions().height - 8))} flexShrink={0} focused scrollX={false} scrollY>
-                       <text id="ghost-diagnostics-body" fg={context.theme.text.base} wrapMode="word" content={message} />
-                     </scrollbox>
-                   </box>
-                 )
-               })
-              return
-            }
-            if (command.type === "invalid") {
-              context.ui.toast.show({ message: "Use /suggest, /suggest model provider/model, /suggest model clear, /suggest debug [on|off], or /suggest log", variant: "warning" })
-              return
-            }
-            cancelSuggestion()
-            const next = !state.enabled
-            await updateState((draft) => {
-              draft.enabled = next
-            })
-            cancelSuggestion()
-            if (!next) {
-              context.ui.toast.show({ message: "Prompt suggestions: off" })
-              return
-            }
-            context.ui.toast.show({ message: "Prompt suggestions: on" })
-            catalog.clear()
-            const route = context.ui.router.current()
-            if (route.type === "session") void lifecycle.run(route.sessionID)
+      const command = parseSuggestCommand(input)
+      if (command.type === "model") {
+        cancelSuggestion()
+        lifecycle.resetWarning()
+        catalog.clear()
+        await updateState((draft) => { draft.model = command.model })
+        cancelSuggestion()
+        context.ui.toast.show({ message: `Suggestion model: ${state.model ?? opts.model ?? "OpenCode small default"}` })
+        return
+      }
+      if (command.type === "debug") {
+        let next = false
+        await updateState((draft) => {
+          next = command.value ?? (draft.debug !== true)
+          draft.debug = next
+        })
+        context.ui.toast.show({ message: `Ghost debug: ${next ? "on" : "off"}` })
+        return
+      }
+      if (command.type === "log") {
+        const override = state.model ?? opts.model
+        const summary = `suggestions ${state.enabled ? "on" : "off"}, debug ${state.debug === true ? "on" : "off"}, model ${override ?? "OpenCode small default"}`
+        const current = suggestion()
+        const color = ghostColor()
+        const route = context.ui.router.current()
+        const entry = route.type === "session" ? composers.get(route.sessionID) : undefined
+        const editor = lookupComposer(entry?.marker).editor
+        const live = [
+          `route ${route.type}`,
+          `suggestion ${current ? `retained (${graphemeLength(current.text)} chars)` : "none"}`,
+          `display ${current ? displayStatus(current) : "n/a"}`,
+          `focused ${editor ? (editor === context.renderer.currentFocusedEditor && editor.focused ? "yes" : "no") : "n/a"}`,
+          `mode ${context.keymap.mode.current()}`,
+          `color rgba(${[color.r, color.g, color.b, color.a].map((value) => value.toFixed(2)).join(", ")})`,
+        ].join("\n")
+        const message = `${summary}\n\nNow\n${live}\n\nDisplay changes\n${displayLog.list().length ? formatDiagnostics(displayLog.list()) : "None recorded yet."}\n\nGenerations\n${formatDiagnostics(diagnostics.list())}`
+        context.ui.dialog.set({ size: "large", centered: true })
+        context.ui.dialog.show(() => {
+          const dimensions = useTerminalDimensions()
+          return (
+            <box id="ghost-diagnostics" width="100%" paddingX={2} paddingY={1} gap={1}>
+              <box flexDirection="row" justifyContent="space-between" flexShrink={0}>
+                <text fg={context.theme.text.base}><b>Ghost — diagnostics</b></text>
+                <text fg={context.theme.text.muted}>esc</text>
+              </box>
+              <scrollbox id="ghost-diagnostics-scroll" height={Math.max(1, Math.min(28, dimensions().height - 8))} flexShrink={0} focused scrollX={false} scrollY>
+                <text id="ghost-diagnostics-body" fg={context.theme.text.base} wrapMode="word" content={message} />
+              </scrollbox>
+            </box>
+          )
+        })
+        return
+      }
+      if (command.type === "invalid") {
+        context.ui.toast.show({ message: "Use /suggest, /suggest model provider/model, /suggest model clear, /suggest debug [on|off], or /suggest log", variant: "warning" })
+        return
+      }
+      cancelSuggestion()
+      let next = false
+      await updateState((draft) => {
+        next = !draft.enabled
+        draft.enabled = next
+      })
+      cancelSuggestion()
+      if (!next) {
+        context.ui.toast.show({ message: "Prompt suggestions: off" })
+        return
+      }
+      context.ui.toast.show({ message: "Prompt suggestions: on" })
+      catalog.clear()
+      const route = context.ui.router.current()
+      if (route.type === "session") void lifecycle.run(route.sessionID)
       })
     context.keymap.layer(acceptLayer)
     context.keymap.layer(suggestLayer)
