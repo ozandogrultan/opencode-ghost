@@ -20,7 +20,7 @@
         "typescript": "7.0.2",
       },
       "peerDependencies": {
-        "@opencode/plugin": "*",
+        "@opencode/plugin": ">=2.4.0",
         "solid-js": "*",
       },
     },
