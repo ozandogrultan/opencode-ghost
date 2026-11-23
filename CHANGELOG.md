@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.16] - 2026-11-23
+
+### Fixed
+
+- **deps:** Require OpenCode 2.4.0 for OpenTUI 0.9 (#30)
+
 ## [1.3.15] - 2026-11-08
 
 ### Fixed
@@ -337,6 +343,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Options for `model`, `acceptKeys`, `maxChars`, `idleDelayMs`,
   `recentMessages` and `system`.
 
+[1.3.16]: https://github.com/ozandogrultan/opencode-ghost/compare/v1.3.15...v1.3.16
 [1.3.15]: https://github.com/ozandogrultan/opencode-ghost/compare/v1.3.14...v1.3.15
 [1.3.14]: https://github.com/ozandogrultan/opencode-ghost/compare/v1.3.13...v1.3.14
 [1.3.13]: https://github.com/ozandogrultan/opencode-ghost/compare/v1.3.12...v1.3.13
